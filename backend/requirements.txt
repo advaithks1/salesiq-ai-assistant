@@ -1,9 +1,7 @@
 fastapi
 uvicorn
 pydantic
-pandas
 numpy
-faiss-cpu
-sentence-transformers
+pandas
+requests
 python-multipart
-scikit-learn
