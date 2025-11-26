@@ -1,0 +1,31 @@
+@import "tailwindcss";
+/* Hackathon Metadata Box */
+.meta-box {
+  background: #f6f6f6;
+  padding: 8px;
+  margin-top: 6px;
+  border-left: 4px solid #4b8df8;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.tag {
+  margin: 2px 0;
+}
+
+.autoflow {
+  color: #0d6efd;
+  font-weight: bold;
+}
+
+.required {
+  color: #dc3545;
+}
+
+.hint {
+  color: #198754;
+}
+
+.score {
+  color: #6c757d;
+}
