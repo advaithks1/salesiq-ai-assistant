@@ -1,31 +1,110 @@
-@import "tailwindcss";
-/* Hackathon Metadata Box */
-.meta-box {
-  background: #f6f6f6;
-  padding: 8px;
-  margin-top: 6px;
-  border-left: 4px solid #4b8df8;
-  border-radius: 6px;
-  font-size: 13px;
+body {
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f4f7fb;
 }
 
-.tag {
-  margin: 2px 0;
+.app-container {
+  padding: 20px;
+  max-width: 1100px;
+  margin: auto;
 }
 
-.autoflow {
-  color: #0d6efd;
+.app-title {
+  text-align: center;
+  font-size: 34px;
+  font-weight: 700;
+  color: #2a2a2a;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  text-align: center;
+  color: gray;
+  margin-bottom: 40px;
+}
+
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+}
+
+.card {
+  background: #fff;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0px 2px 12px rgba(0,0,0,0.08);
+}
+
+.input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 5px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+.btn {
+  margin-top: 12px;
+  padding: 12px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  width: 100%;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  background: #1d4ed8;
+}
+
+.result-box {
+  margin-top: 20px;
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 10px;
+  border-left: 4px solid #3b82f6;
+}
+
+.timeline {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.timeline li {
+  margin-bottom: 6px;
+}
+
+.error {
+  color: red;
   font-weight: bold;
 }
 
-.required {
-  color: #dc3545;
+.analytics-container {
+  margin-top: 40px;
+  text-align: center;
 }
 
-.hint {
-  color: #198754;
+.btn-analytics {
+  padding: 12px 20px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
 }
 
-.score {
-  color: #6c757d;
+.analytics-box {
+  margin-top: 20px;
+  background: white;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0px 2px 12px rgba(0,0,0,0.08);
+  text-align: left;
 }
