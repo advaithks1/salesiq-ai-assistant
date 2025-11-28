@@ -1,24 +1,12 @@
-# ai_engine_step5.py — FINAL SAFE HACKATHON VERSION
-"""
-Lightweight AI engine designed for Zoho SalesIQ Hackathon.
-
-Features:
-- Intent detection (order, pricing, support, greeting, escalate)
-- Emotion detection (simple keyword rules)
-- Pricing metadata for SalesIQ card
-- Order tracking simulation (stable deterministic stages)
-- 100% SalesIQ-safe responses (no emojis, no bullets)
-"""
+# ai_engine_step5.py — FINAL HACKATHON AI ENGINE
 
 import re
-import time
 import random
 from collections import defaultdict, deque
 from typing import Dict, Any, Tuple
 
-
 # -----------------------------
-# INTENT + EMOTION RULES
+# INTENT RULES
 # -----------------------------
 
 GREETING_WORDS = {"hi", "hello", "hey", "hii", "hiya"}
@@ -31,6 +19,9 @@ INTENT_RULES = {
     "escalate": ["agent", "human", "representative", "supervisor"]
 }
 
+# -----------------------------
+# INTENT CLASSIFIER
+# -----------------------------
 
 def classify_intent(text: str) -> Tuple[str, float]:
     msg = (text or "").lower().strip()
@@ -38,10 +29,14 @@ def classify_intent(text: str) -> Tuple[str, float]:
     if not msg:
         return "unknown", 0.0
 
-    # special: greeting
+    # greeting
     for g in GREETING_WORDS:
         if msg == g or msg.startswith(g + " "):
             return "greeting", 1.0
+
+    # chit-chat
+    if any(w in msg for w in ["love", "miss you", "friend", "bro"]):
+        return "chitchat", 0.85
 
     # rule-based
     for intent, kws in INTENT_RULES.items():
@@ -49,18 +44,23 @@ def classify_intent(text: str) -> Tuple[str, float]:
             if k in msg:
                 return intent, 0.92
 
-    # detect numeric order id
+    # numeric order id
     if re.search(r"\b(\d{3,12})\b", msg):
         return "order", 0.95
 
     return "unknown", 0.35
 
 
+# -----------------------------
+# EMOTION CLASSIFIER
+# -----------------------------
+
 def classify_emotion(text: str) -> Tuple[str, float]:
     msg = (text or "").lower()
 
     if any(w in msg for w in ["thanks", "thank", "nice", "great"]):
         return "happy", 0.8
+
     if any(w in msg for w in ["angry", "hate", "fuck", "frustrat"]):
         return "angry", 0.9
 
@@ -73,14 +73,11 @@ def classify_emotion(text: str) -> Tuple[str, float]:
 
 class Memory:
     def __init__(self, ctx_size=20):
-        self.data = defaultdict(
-            lambda: {
-                "escalations": 0,
-                "last_intent": None,
-                "expect": None,
-                "context": deque(maxlen=ctx_size)
-            }
-        )
+        self.data = defaultdict(lambda: {
+            "escalations": 0,
+            "last_intent": None,
+            "context": deque(maxlen=ctx_size)
+        })
 
     def get(self, uid):
         return self.data[uid]
@@ -88,9 +85,7 @@ class Memory:
     def push_context(self, uid, speaker, text):
         self.data[uid]["context"].append({"speaker": speaker, "text": text})
 
-
 memory = Memory()
-
 
 # -----------------------------
 # ORDER SIMULATION
@@ -105,7 +100,6 @@ ORDER_STAGES = [
     "Out for delivery",
     "Delivered"
 ]
-
 
 def simulate_order(oid: str) -> Dict[str, Any]:
     try:
@@ -160,27 +154,26 @@ class AIEngine:
                 "metadata": {}
             }
 
-        # Safety
-        if any(w in msg.lower() for w in ["kill", "bomb", "suicide", "terror"]):
+        # SAFETY
+        if any(w in msg.lower() for w in ["fuck", "shit", "bitch", "kill", "bomb", "suicide"]):
             return {
-                "final_answer": "I cannot help with that.",
+                "final_answer": "I cannot help with inappropriate or harmful messages.",
                 "intent": "blocked",
                 "emotion": "neutral",
-                "confidence": 0.0,
+                "confidence": 1.0,
                 "metadata": {}
             }
 
-        # Intent + emotion
-        intent, intent_conf = classify_intent(msg)
+        # CLASSIFY
+        intent, confidence = classify_intent(msg)
         emotion, _ = classify_emotion(msg)
 
-        # ORDER flow
+        # ORDER
         if intent == "order":
             m = re.search(r"\b(\d{3,12})\b", msg)
             if m:
                 oid = m.group(1)
                 order = simulate_order(oid)
-                mem["last_intent"] = "order"
                 return {
                     "final_answer": f"Order {oid} status: {order['stage']}",
                     "intent": "order",
@@ -193,17 +186,12 @@ class AIEngine:
                     }
                 }
 
-        # PRICING flow
+        # PRICING
         if intent == "pricing":
-            # detect plan
             m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
             plan = m.group(1).lower() if m else "basic"
-
             price = simulated_price(plan)
-            mem["last_intent"] = "pricing"
 
-            # VERY IMPORTANT:
-            # final_answer should be simple (NO emojis, NO formatting)
             return {
                 "final_answer": plan + "_plan",
                 "intent": "pricing",
@@ -222,6 +210,16 @@ class AIEngine:
                 "intent": "greeting",
                 "emotion": emotion,
                 "confidence": 1.0,
+                "metadata": {}
+            }
+
+        # CHIT CHAT
+        if intent == "chitchat":
+            return {
+                "final_answer": "I'm here to assist you! How can I help today?",
+                "intent": "chitchat",
+                "emotion": emotion,
+                "confidence": 0.9,
                 "metadata": {}
             }
 
@@ -254,11 +252,3 @@ class AIEngine:
             "confidence": 0.3,
             "metadata": {}
         }
-
-
-# Manual testing
-if __name__ == "__main__":
-    eng = AIEngine()
-    while True:
-        t = input("You: ")
-        print(eng.process("local", t))
