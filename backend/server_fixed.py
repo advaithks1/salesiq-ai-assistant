@@ -1,5 +1,6 @@
-# server_fixed.py — PREMIUM backend (analytics + order + emotion)
+# server_fixed.py — PREMIUM backend (analytics + order + emotion) (updated)
 import os
+import re
 import json
 import threading
 import random
@@ -11,19 +12,17 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 
-from ai_engine_step5 import AIEngine
+from ai_engine_step5 import AIEngine, USE_HF
 
 # Paths
 ANALYTICS_FILE = "analytics.json"
 LOG_FILE = "chat_logs.jsonl"
 
-HOST = "0.0.0.0"
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 8000))
 
-# App
 app = FastAPI(title="SalesIQ AI Engine — PREMIUM")
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,10 +31,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Engine
 engine = AIEngine()
 
-# Analytics
 analytics_lock = threading.Lock()
 
 def default_analytics() -> Dict[str, Any]:
@@ -68,12 +65,15 @@ def save_analytics():
     except Exception as e:
         print("Error saving analytics:", e)
 
-# Health
 @app.get("/health")
 async def health():
-    return {"status": "ok", "engine_loaded": True, "time": datetime.utcnow().isoformat()}
+    return {
+        "status": "ok",
+        "engine_loaded": True,
+        "use_hf": bool(USE_HF),
+        "time": datetime.utcnow().isoformat()
+    }
 
-# Chat endpoints
 @app.get("/chat")
 async def chat_get():
     return {"status": "ok", "detail": "Use POST /chat to interact"}
@@ -103,13 +103,12 @@ async def chat_post(request: Request):
     if not message:
         return JSONResponse({"error": "No message received"}, status_code=400)
 
-    # process
     try:
         result = engine.process(user_id, message)
     except Exception as e:
+        # return safe structured error so frontend shows friendly message
         return JSONResponse({"error": "AI Engine Error", "detail": str(e)}, status_code=500)
 
-    # update analytics
     with analytics_lock:
         analytics["total_requests"] += 1
         intent = result.get("intent", "unknown")
@@ -121,11 +120,9 @@ async def chat_post(request: Request):
         analytics["priority_counts"][priority] = analytics["priority_counts"].get(priority, 0) + 1
         analytics["escalations_total"] += engine.memory.data[user_id]["escalations"]
 
-        # top questions by matched_question or message
         q = result.get("matched_question") or message
         analytics["top_questions"][q] = analytics["top_questions"].get(q, 0) + 1
 
-        # chat log entry
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "user_id": user_id,
@@ -137,7 +134,7 @@ async def chat_post(request: Request):
             "metadata": result.get("metadata", {})
         }
         analytics["chat_log"].append(log_entry)
-        analytics["chat_log"] = analytics["chat_log"][-500:]  # keep last 500
+        analytics["chat_log"] = analytics["chat_log"][-500:]
         analytics["last_updated"] = datetime.utcnow().isoformat()
         save_analytics()
 
@@ -149,15 +146,13 @@ async def chat_post(request: Request):
         "engine_raw": result
     }
 
-# Order system (same as before but included)
 ORDER_STAGES = [
     "Order confirmed", "Packing", "Ready to ship", "Shipped",
     "In transit", "Out for delivery", "Delivered"
 ]
 
 def simulate_order(oid: str):
-    if not oid:
-        oid = "0"
+    if not oid: oid = "0"
     try:
         seed = int(re.sub(r'\D', '', oid) or 0) % 9999
     except:
@@ -169,7 +164,7 @@ def simulate_order(oid: str):
     return {"order_id": oid, "stage": stage, "eta_days": eta, "status": "Delivered" if stage == "Delivered" else "In Progress", "history": ORDER_STAGES[:stage_index+1]}
 
 @app.get("/order")
-async def order_lookup(oid: str):
+async def order_lookup(oid: str = ""):
     if not oid:
         return {"error": "Missing order ID"}
     data = simulate_order(oid)
@@ -180,7 +175,6 @@ async def order_lookup(oid: str):
         save_analytics()
     return data
 
-# Analytics endpoints
 @app.get("/analytics")
 async def get_analytics():
     return analytics
@@ -201,13 +195,11 @@ async def reset_analytics():
     save_analytics()
     return {"status": "ok", "message": "Analytics reset"}
 
-# Shutdown / reset memory (useful for demo)
 @app.post("/reset")
 async def reset_memory():
     engine.memory.data.clear()
     return {"status": "ok", "message": "Memory cleared"}
 
-# Local dev runner
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server_fixed:app", host="0.0.0.0", port=PORT, reload=True)
+    uvicorn.run(app, host=HOST, port=PORT, reload=True)
