@@ -200,6 +200,64 @@ async def reset_analytics():
     analytics = _default_analytics()
     _save_analytics()
     return {"status": "ok", "message": "analytics reset"}
+@app.post("/agent_assist")
+async def agent_assist(request: Request):
+    try:
+        data = await request.json()
+    except:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id")
+
+    mem = engine.memory.get(user_id)
+
+    # last 3 messages
+    ctx = list(mem["context"])[-3:]
+
+    # last known info
+    last_intent = mem["last_intent"]
+    escalations = mem["escalations"]
+
+    # build summary
+    conversation_summary = ""
+    for item in ctx:
+        conversation_summary += f"{item['speaker'].upper()}: {item['text']}\n"
+
+    # suggestions
+    suggestions = []
+
+    if last_intent == "order":
+        suggestions.append("Provide detailed delivery timeline")
+        suggestions.append("Ask if user wants SMS/Email alerts")
+    elif last_intent == "pricing":
+        suggestions.append("Explain feature differences")
+        suggestions.append("Offer discount or coupon")
+    elif last_intent == "support":
+        suggestions.append("Request screenshot or error code")
+        suggestions.append("Guide through basic troubleshooting")
+    else:
+        suggestions.append("Ask the user to clarify their issue")
+
+    # recommended agent action
+    recommended_action = "Respond politely and ask for more details"
+
+    if last_intent == "support":
+        recommended_action = "Collect error details, device info, steps to reproduce"
+    if last_intent == "escalate":
+        recommended_action = "Take over actively and reassure the user"
+    if escalations > 1:
+        recommended_action = "Handle carefully — user is frustrated"
+
+    return {
+        "summary": conversation_summary,
+        "last_intent": last_intent,
+        "escalations": escalations,
+        "suggestions": suggestions,
+        "recommended_action": recommended_action,
+        "recent_messages": ctx
+    }
 
 # -------- run locally ----------
 if __name__ == "__main__":
