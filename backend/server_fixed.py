@@ -258,6 +258,102 @@ async def agent_assist(request: Request):
         "recommended_action": recommended_action,
         "recent_messages": ctx
     }
+@app.get("/agent_assist")
+async def agent_assist(uid: str):
+    """
+    Provide real-time agent assistance based on memory + analytics.
+    """
+    if uid not in engine.memory.data:
+        return {
+            "error": "Unknown user",
+            "summary": "",
+            "suggested_reply": "Hello! How may I help you today?",
+            "history": [],
+            "emotion": "neutral",
+            "priority": "medium",
+            "frustration_score": 0.0,
+            "last_intent": "unknown"
+        }
+
+    mem = engine.memory.data[uid]
+
+    # ---------------------------
+    # 1. Conversation History
+    # ---------------------------
+    history = [x["text"] for x in mem["context"] if x["speaker"] == "user"]
+
+    # ---------------------------
+    # 2. Last Intent
+    # ---------------------------
+    last_intent = mem.get("last_intent", "unknown")
+
+    # ---------------------------
+    # 3. Frustration Score
+    # ---------------------------
+    frustration_words = ["not working", "angry", "hate", "bad", "error", "slow", "wtf", "no help"]
+    frustration_score = 0.0
+    for h in history[-6:]:     # last 6 messages
+        for w in frustration_words:
+            if w in h.lower():
+                frustration_score += 0.2
+    frustration_score = min(frustration_score, 1.0)
+
+    # ---------------------------
+    # 4. Emotion Trend
+    # ---------------------------
+    emotion = "neutral"
+    if frustration_score >= 0.6:
+        emotion = "angry"
+    elif frustration_score >= 0.3:
+        emotion = "confused"
+
+    # ---------------------------
+    # 5. Priority Level
+    # ---------------------------
+    if emotion == "angry":
+        priority = "high"
+    elif emotion == "confused":
+        priority = "medium"
+    else:
+        priority = "low"
+
+    # ---------------------------
+    # 6. Conversation Summary
+    # ---------------------------
+    if len(history) == 0:
+        summary = "User just started the chat."
+    else:
+        summary = (
+            f"User asked about: {history[-1]}. "
+            f"Recent intents show interest in {last_intent}. "
+            f"Overall emotion seems {emotion}."
+        )
+
+    # ---------------------------
+    # 7. Suggested Replies
+    # ---------------------------
+    suggestions = {
+        "order": "I can help track your order. Could you share the Order ID?",
+        "pricing": "We offer Basic, Pro, and Enterprise plans. Would you like details?",
+        "support": "Can you share more information or a screenshot of the issue?",
+        "login": "Please try resetting your password using the Forgot Password option.",
+        "escalate": "Connecting you to a human agent now.",
+        "unknown": "Can you please clarify what you need help with?",
+    }
+    suggested_reply = suggestions.get(last_intent, "How may I assist you?")
+
+    # final result
+    return {
+        "user_id": uid,
+        "summary": summary,
+        "last_intent": last_intent,
+        "emotion": emotion,
+        "priority": priority,
+        "frustration_score": round(frustration_score, 2),
+        "suggested_reply": suggested_reply,
+        "history": history[-10:]  # last 10 messages
+    }
+
 
 # -------- run locally ----------
 if __name__ == "__main__":
