@@ -152,6 +152,9 @@ def safety_filter(text: str) -> bool:
     # check critical words
     if any(b in t for b in BAD_WORDS):
         return True
+    # block explicit violent instructions or slurs (basic)
+    if any(w in t for w in ["kill yourself", "hurt", "bomb"]):
+        return True
     return False
 
 def _word_in_text(word: str, text: str) -> bool:
@@ -199,10 +202,7 @@ def classify_emotion(text: str) -> Tuple[str, float]:
                         return "confused", score
                     if label in {"joy", "happiness", "happy", "admiration"}:
                         return "happy", score
-                    # fallback to keywords if mapping not clear
-                # HF may return a dict of label->score (older endpoints)
                 if isinstance(data, dict):
-                    # pick max key
                     items = sorted(data.items(), key=lambda x: x[1], reverse=True)
                     label = items[0][0].lower()
                     score = float(items[0][1])
@@ -215,7 +215,6 @@ def classify_emotion(text: str) -> Tuple[str, float]:
                     if "joy" in label or "happy" in label:
                         return "happy", score
         except Exception:
-            # if HF fails, fall back to keywords
             pass
 
     # 3) Keyword fallback resolution
