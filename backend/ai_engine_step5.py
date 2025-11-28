@@ -2,12 +2,12 @@
 """
 Lightweight AI engine for Zoho SalesIQ Hackathon.
 Features:
-- Intent detection (order, pricing, support, greeting, escalate)
+- Intent detection (order, pricing, support, greeting, escalate, login)
 - Emotion detection (rule-based)
 - Order tracking simulation (deterministic)
 - Pricing engine
 - Safety filter
-- Memory of last messages
+- Memory (last 20 messages)
 - Agent Assist PRO (summary, frustration, risk, suggestions, last 3 messages)
 """
 
@@ -17,9 +17,10 @@ from collections import defaultdict, deque
 from typing import Dict, Any
 
 
-# -------------------------
-# INTENT RULES
-# -------------------------
+# ============================================================
+#  INTENT RULES
+# ============================================================
+
 GREETING_WORDS = {"hi", "hello", "hey", "hii"}
 
 INTENT_RULES = {
@@ -32,45 +33,48 @@ INTENT_RULES = {
 
 
 def classify_intent(text: str):
-    msg = (text or "").lower()
+    msg = (text or "").lower().strip()
 
-    # greeting
+    # Greeting
     for g in GREETING_WORDS:
         if msg == g or msg.startswith(g + " "):
             return "greeting", 1.0
 
-    # login high priority
+    # Login is high priority
     if any(w in msg for w in ["password", "reset password", "forgot password"]):
         return "login", 1.0
 
-    # rule-based
+    # Rule-based intents
     for intent, kws in INTENT_RULES.items():
         for k in kws:
             if k in msg:
                 return intent, 0.92
 
-    # detect number — assume order
+    # Detect numeric order ID
     if re.search(r"\b(\d{3,12})\b", msg):
         return "order", 0.95
 
     return "unknown", 0.3
 
 
-# -------------------------
-# EMOTION
-# -------------------------
+# ============================================================
+#  EMOTION
+# ============================================================
+
 def classify_emotion(text: str):
-    msg = text.lower()
+    msg = (text or "").lower()
+
     if any(w in msg for w in ["thanks", "thank", "nice", "great"]):
         return "happy", 0.9
-    if any(w in msg for w in ["hate", "angry", "fuck", "stupid"]):
+    if any(w in msg for w in ["hate", "angry", "fuck", "stupid", "bad"]):
         return "angry", 0.9
     return "neutral", 0.5
 
 
-# -------------------------
-# MEMORY
-# -------------------------
+# ============================================================
+#  MEMORY
+# ============================================================
+
 class Memory:
     def __init__(self):
         self.data = defaultdict(lambda: {
@@ -78,16 +82,17 @@ class Memory:
             "escalations": 0
         })
 
-    def push(self, uid, speaker, text):
+    def push(self, uid: str, speaker: str, text: str):
         self.data[uid]["context"].append({"speaker": speaker, "text": text})
 
 
 memory = Memory()
 
 
-# -------------------------
-# ORDER SIMULATOR
-# -------------------------
+# ============================================================
+#  ORDER SIMULATION
+# ============================================================
+
 ORDER_STAGES = [
     "Order confirmed",
     "Packing",
@@ -99,7 +104,7 @@ ORDER_STAGES = [
 ]
 
 
-def simulate_order(order_id):
+def simulate_order(order_id: str):
     try:
         seed = int("".join(filter(str.isdigit, order_id))) % 9999
     except:
@@ -116,10 +121,11 @@ def simulate_order(order_id):
     }
 
 
-# -------------------------
-# PRICING
-# -------------------------
-def simulated_price(plan):
+# ============================================================
+#  PRICING
+# ============================================================
+
+def simulated_price(plan: str) -> str:
     plan = plan.lower()
     prices = {
         "basic": "₹499",
@@ -129,19 +135,20 @@ def simulated_price(plan):
     return prices.get(plan, "₹499")
 
 
-# -------------------------
-# AGENT ASSIST PRO
-# -------------------------
-def suggest_reply(intent, emotion):
+# ============================================================
+#  AGENT ASSIST PRO
+# ============================================================
+
+def suggest_reply(intent: str, emotion: str):
     if intent == "order":
         return "Reassure user and confirm order ID."
     if intent == "pricing":
-        return "Offer comparison of all plans."
+        return "Offer a quick plan comparison."
+    if intent == "support":
+        return "Ask for screenshot or error details."
     if emotion == "angry":
         return "Stay calm and apologize politely."
-    if intent == "support":
-        return "Ask user for screenshot or steps."
-    return "Continue guiding user."
+    return "Guide the user to next step."
 
 
 def frustration_score(context):
@@ -162,15 +169,17 @@ def risk_level(intent, emotion):
 
 
 def summarize(context):
-    if len(context) == 0:
+    if not context:
         return "No conversation yet."
-    last = " ".join([c["text"] for c in list(context)[-3:]])
-    return "User mainly talked about: " + last
+
+    last_text = " ".join(c["text"] for c in list(context)[-3:])
+    return "Recent user intent: " + last_text
 
 
-# -------------------------
-# MAIN ENGINE
-# -------------------------
+# ============================================================
+#  MAIN ENGINE
+# ============================================================
+
 class AIEngine:
     def __init__(self):
         self.memory = memory
@@ -180,7 +189,7 @@ class AIEngine:
         msg = (message or "").strip()
         mem = self.memory.data[user_id]
 
-        # push context
+        # save memory
         self.memory.push(user_id, "user", msg)
 
         # SAFETY FILTER
@@ -197,56 +206,66 @@ class AIEngine:
         intent, conf = classify_intent(msg)
         emotion, emo_conf = classify_emotion(msg)
 
+        # Common metadata builder
+        def build_meta(custom: Dict[str, Any]):
+            ctx = mem["context"]
+            total = len(ctx)
+
+            return {
+                **custom,
+                "suggestion": suggest_reply(intent, emotion),
+                "frustration": frustration_score(ctx),
+                "risk": risk_level(intent, emotion),
+                "summary": summarize(ctx),
+                "m1": ctx[-1]["text"] if total > 0 else "",
+                "m2": ctx[-2]["text"] if total > 1 else "",
+                "m3": ctx[-3]["text"] if total > 2 else ""
+            }
+
+        # -------------------------
         # ORDER
+        # -------------------------
         if intent == "order":
             m = re.search(r"\b(\d{3,12})\b", msg)
             if m:
                 oid = m.group(1)
-                o = simulate_order(oid)
+                order = simulate_order(oid)
+
                 return {
-                    "final_answer": "Tracking order " + oid,
+                    "final_answer": "order_status",
                     "intent": "order",
                     "emotion": emotion,
                     "confidence": 1.0,
-                    "metadata": {
+                    "metadata": build_meta({
                         "order_id": oid,
-                        "order_stage": o["stage"],
-                        "eta_days": o["eta_days"],
-                        "history": o["history"],
-                        "suggestion": suggest_reply(intent, emotion),
-                        "frustration": frustration_score(mem["context"]),
-                        "risk": risk_level(intent, emotion),
-                        "summary": summarize(mem["context"]),
-                        "m1": mem["context"][-1]["text"] if len(mem["context"]) > 0 else "",
-                        "m2": mem["context"][-2]["text"] if len(mem["context"]) > 1 else "",
-                        "m3": mem["context"][-3]["text"] if len(mem["context"]) > 2 else ""
-                    }
+                        "order_stage": order["stage"],
+                        "eta_days": order["eta_days"],
+                        "history": order["history"]
+                    })
                 }
 
+        # -------------------------
         # PRICING
+        # -------------------------
         if intent == "pricing":
             m = re.search(r"(basic|pro|enterprise)", msg, re.IGNORECASE)
             plan = m.group(1).lower() if m else "basic"
             price = simulated_price(plan)
+
             return {
-                "final_answer": plan + "_plan",
+                "final_answer": "pricing_info",
                 "intent": "pricing",
                 "emotion": emotion,
                 "confidence": 0.95,
-                "metadata": {
+                "metadata": build_meta({
                     "plan": plan,
-                    "price": price,
-                    "suggestion": suggest_reply(intent, emotion),
-                    "frustration": frustration_score(mem["context"]),
-                    "risk": risk_level(intent, emotion),
-                    "summary": summarize(mem["context"]),
-                    "m1": mem["context"][-1]["text"] if len(mem["context"]) > 0 else "",
-                    "m2": mem["context"][-2]["text"] if len(mem["context"]) > 1 else "",
-                    "m3": mem["context"][-3]["text"] if len(mem["context"]) > 2 else ""
-                }
+                    "price": price
+                })
             }
 
+        # -------------------------
         # GREETING
+        # -------------------------
         if intent == "greeting":
             return {
                 "final_answer": "Hi! How can I help you today?",
@@ -256,25 +275,21 @@ class AIEngine:
                 "metadata": {}
             }
 
+        # -------------------------
         # SUPPORT
+        # -------------------------
         if intent == "support":
             return {
                 "final_answer": "Please describe the issue.",
                 "intent": "support",
                 "emotion": emotion,
                 "confidence": 0.9,
-                "metadata": {
-                    "suggestion": suggest_reply(intent, emotion),
-                    "frustration": frustration_score(mem["context"]),
-                    "risk": risk_level(intent, emotion),
-                    "summary": summarize(mem["context"]),
-                    "m1": mem["context"][-1]["text"] if len(mem["context"]) > 0 else "",
-                    "m2": mem["context"][-2]["text"] if len[mem["context"]) > 1 else "",
-                    "m3": mem["context"][-3]["text"] if len[mem["context"]) > 2 else ""
-                }
+                "metadata": build_meta({})
             }
 
+        # -------------------------
         # ESCALATE
+        # -------------------------
         if intent == "escalate":
             mem["escalations"] += 1
             return {
@@ -282,18 +297,12 @@ class AIEngine:
                 "intent": "escalate",
                 "emotion": emotion,
                 "confidence": 1.0,
-                "metadata": {
-                    "suggestion": suggest_reply(intent, emotion),
-                    "frustration": frustration_score(mem["context"]),
-                    "risk": "high",
-                    "summary": summarize(mem["context"]),
-                    "m1": mem["context"][-1]["text"] if len[mem["context"]) > 0 else "",
-                    "m2": mem["context"][-2]["text"] if len[mem["context"]) > 1 else "",
-                    "m3": mem["context"][-3]["text"] if len[mem["context"]) > 2 else ""
-                }
+                "metadata": build_meta({})
             }
 
+        # -------------------------
         # LOGIN
+        # -------------------------
         if intent == "login":
             return {
                 "final_answer": "Use the 'Forgot Password' option on the login page.",
@@ -303,19 +312,13 @@ class AIEngine:
                 "metadata": {}
             }
 
-        # UNKNOWN
+        # -------------------------
+        # FALLBACK
+        # -------------------------
         return {
             "final_answer": "I couldn't understand that. Can you rephrase?",
             "intent": "unknown",
             "emotion": emotion,
             "confidence": 0.3,
-            "metadata": {
-                "suggestion": suggest_reply(intent, emotion),
-                "frustration": frustration_score(mem["context"]),
-                "risk": risk_level(intent, emotion),
-                "summary": summarize(mem["context"]),
-                "m1": mem["context"][-1]["text"] if len(mem["context"]) > 0 else "",
-                "m2": mem["context"][-2]["text"] if len[mem["context"]) > 1 else "",
-                "m3": mem["context"][-3]["text"] if len[mem["context"]) > 2 else ""
-            }
+            "metadata": build_meta({})
         }
