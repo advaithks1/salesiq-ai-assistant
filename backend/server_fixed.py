@@ -156,6 +156,8 @@ ORDER_STAGES = [
 ]
 
 def simulate_order(oid: str):
+    if not oid:
+        oid = "0"
     try:
         seed = int(re.sub(r'\D', '', oid) or 0) % 9999
     except:
