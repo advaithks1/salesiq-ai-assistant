@@ -1,34 +1,44 @@
-# ai_engine_step5.py — PREMIUM AI ENGINE (Stable demo mode + HF toggle)
+# ai_engine_step5.py — Smart Hybrid AI Engine (Hackathon Winner Edition)
 """
-Stable AI engine with:
-- USE_HF toggle (default: False) to avoid HF timeouts during demo
-- Pricing fallback fix
-- Analytics intent added
-- Robust error handling and safe semantic search
+Smart Hybrid AI Engine — Rule-based + Optional ML (HuggingFace) toggle.
+
+Default mode (recommended for hackathon): USE_HF = False
+Toggle USE_HF = true + set HUGGINGFACE_API_KEY to enable embeddings & HF emotion model.
+
+Features:
+- Intent classification (rules + keywords)
+- Emotion detection (keywords + optional HF)
+- Profanity & dangerous content filter
+- Autoflow for missing fields (order_id, plan_type, product_name)
+- Per-user memory (context + escalation count + expectations)
+- Optional semantic KB (embeddings + cosine similarity) with caching
+- Safe, predictable responses for demo
 """
 
 import os
 import re
-import hashlib
-import json
 import time
-from collections import defaultdict, deque
+import json
+import hashlib
 from typing import Optional, Tuple, Dict, Any, List
+from collections import defaultdict, deque
 
 import numpy as np
 import pandas as pd
 import requests
 
-# Config / paths
+# -------------------------
+# Configuration & Paths
+# -------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 KB_CSV = os.path.join(BASE_DIR, "data", "knowledge_base_Sheet1.csv")
 EMBED_CACHE = os.path.join(BASE_DIR, "kb_embeddings.npy")
 
-# Toggle for HuggingFace usage — set USE_HF=true in Render only if you want embeddings
+# Feature toggles (set USE_HF=true and HUGGINGFACE_API_KEY in Render to enable)
 USE_HF = os.environ.get("USE_HF", "false").lower() == "true"
 HF_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", "").strip() if USE_HF else ""
 
-# Models (only used when USE_HF=True)
+# Models for HF (only used when USE_HF True)
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMOTION_MODEL = "SamLowe/roberta-base-go_emotions"
 
@@ -36,9 +46,16 @@ EMOTION_MODEL = "SamLowe/roberta-base-go_emotions"
 SIMILARITY_THRESHOLD = 0.55
 AUTOFLOW_MIN_CONF = 0.50
 
-# Keywords / heuristics
+# -------------------------
+# Heuristics / Keywords
+# -------------------------
 GREETING_WORDS = {"hi", "hello", "hey", "hii", "hiya", "sup"}
-BAD_WORDS = {"kill", "bomb", "suicide", "terror", "illegal"}
+CONFIRM_WORDS = {"yes", "ok", "okay", "sure", "yep", "yeah", "k", "correct"}
+NEGATION_WORDS = {"no", "nah", "not", "don't", "dont", "nope"}
+
+PROFANITY = {"fuck", "fucker", "fucking", "shit", "bitch", "bastard", "idiot", "stupid", "dumb", "asshole"}
+BAD_WORDS = {"kill", "bomb", "suicide", "terror", "illegal", "hurt", "harm"}
+
 INTENT_RULES = {
     "order": ["order", "track", "tracking", "delivery", "shipment", "order id", "ord"],
     "refund": ["refund", "return", "money back", "refund status", "claim"],
@@ -46,37 +63,47 @@ INTENT_RULES = {
     "login": ["login", "signin", "forgot", "password", "reset password"],
     "support": ["help", "issue", "problem", "bug", "error", "not working", "crash"],
     "escalate": ["escalate", "agent", "human", "representative", "supervisor", "talk to agent"],
-    "analytics": ["analytics", "stats", "reports", "dashboard"]
+    "analytics": ["analytics", "stats", "reports", "dashboard"],
+    "product": ["product", "availability", "stock", "in stock", "do you have", "available"]
 }
-PRODUCT_TRIGGERS = ["product", "availability", "stock", "in stock", "do you have", "available"]
 
+# Emotion fallback keywords
 EMO_KEYWORDS = {
     "angry": ["angry", "mad", "frustrated", "annoyed", "irritated", "pissed", "furious"],
     "sad": ["sad", "upset", "disappointed", "depressed", "unhappy", "sorrow"],
     "confused": ["confuse", "dont understand", "lost", "unclear", "how to", "kaise", "kaha"],
-    "happy": ["thanks", "thank you", "great", "awesome", "happy", "glad", "nice"],
+    "happy": ["thanks", "thank you", "great", "awesome", "happy", "glad", "nice", "cool"],
 }
 
-# Memory
+# -------------------------
+# Memory class
+# -------------------------
 class Memory:
-    def __init__(self, ctx_size=20):
+    def __init__(self, ctx_size: int = 20):
         self.data = defaultdict(lambda: {
             "escalations": 0,
-            "expect": None,
+            "expect": None,           # e.g., {"field": "order_id"}
             "last_intent": None,
             "context": deque(maxlen=ctx_size)
         })
-    def get(self, uid): return self.data[uid]
-    def push_context(self, uid, speaker, text): self.data[uid]["context"].append({"speaker": speaker, "text": text})
-    def set_expect(self, uid, expect): self.data[uid]["expect"] = expect
-    def pop_expect(self, uid): 
-        e = self.data[uid]["expect"]
-        self.data[uid]["expect"] = None
-        return e
+
+    def get(self, uid: str) -> Dict[str, Any]:
+        return self.data[uid]
+
+    def push_context(self, uid: str, speaker: str, text: str):
+        self.data[uid]["context"].append({"speaker": speaker, "text": text})
+
+    def clear(self, uid: Optional[str] = None):
+        if uid:
+            self.data.pop(uid, None)
+        else:
+            self.data.clear()
 
 memory = Memory()
 
-# KB loader
+# -------------------------
+# Utilities
+# -------------------------
 def load_kb(path: str) -> pd.DataFrame:
     try:
         if os.path.exists(path):
@@ -85,19 +112,23 @@ def load_kb(path: str) -> pd.DataFrame:
         pass
     return pd.DataFrame(columns=["Question", "Answer"])
 
-def _safe_normalize(a: np.ndarray, axis=1, eps=1e-8):
+def _safe_normalize(a: np.ndarray, axis=1, eps=1e-8) -> np.ndarray:
     norm = np.linalg.norm(a, axis=axis, keepdims=True)
     norm = np.maximum(norm, eps)
     return a / norm
 
-# HuggingFace embeddings (only used when USE_HF is True)
+# -------------------------
+# HuggingFace helpers (safe)
+# -------------------------
 def _hf_request_embeddings(texts: List[str]) -> Optional[np.ndarray]:
+    """Return normalized embeddings or None on failure. Uses HF Inference API."""
     if not USE_HF or not HF_API_KEY:
         return None
     url = f"https://api-inference.huggingface.co/models/{EMBED_MODEL}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     try:
-        resp = requests.post(url, headers=headers, json={"inputs": texts}, timeout=15)
+        # The HF inference for sentence-transformers accepts list of strings -> returns list of floats lists
+        resp = requests.post(url, headers=headers, json={"inputs": texts}, timeout=20)
         if resp.status_code != 200:
             return None
         data = resp.json()
@@ -108,12 +139,36 @@ def _hf_request_embeddings(texts: List[str]) -> Optional[np.ndarray]:
         return None
     return None
 
+def _hf_request_emotion(text: str) -> Optional[Tuple[str, float]]:
+    """Returns (label, score) or None."""
+    if not USE_HF or not HF_API_KEY:
+        return None
+    url = f"https://api-inference.huggingface.co/models/{EMOTION_MODEL}"
+    headers = {"Authorization": f"Bearer {HF_API_KEY}"}
+    try:
+        resp = requests.post(url, headers=headers, json={"inputs": text}, timeout=10)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        # Expecting list of dicts like [{"label":"joy","score":0.9}, ...]
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            preds = sorted(data, key=lambda x: x.get("score", 0), reverse=True)
+            top = preds[0]
+            return top.get("label", "").lower(), float(top.get("score", 0.0))
+    except Exception:
+        return None
+    return None
+
+# -------------------------
+# Embedding caching and building
+# -------------------------
 def load_or_build_embeddings(df: pd.DataFrame) -> np.ndarray:
+    """Load cached embeddings or compute them (only when USE_HF True). If HF not enabled, return empty."""
     if df is None or len(df) == 0:
-        return np.zeros((0,0), dtype="float32")
-    # If HF disabled, skip embeddings
+        return np.zeros((0, 0), dtype="float32")
     if not USE_HF:
-        return np.zeros((0,0), dtype="float32")
+        return np.zeros((0, 0), dtype="float32")
+    # try cache
     if os.path.exists(EMBED_CACHE):
         try:
             emb = np.load(EMBED_CACHE)
@@ -125,130 +180,90 @@ def load_or_build_embeddings(df: pd.DataFrame) -> np.ndarray:
     batch_size = 16
     all_embs = []
     for i in range(0, len(texts), batch_size):
-        batch = texts[i:i+batch_size]
+        batch = texts[i:i + batch_size]
         emb = _hf_request_embeddings(batch)
         if emb is None:
-            return np.zeros((0,0), dtype="float32")
+            # Failure — return empty to indicate disabled embeddings
+            return np.zeros((0, 0), dtype="float32")
         all_embs.append(emb)
     if not all_embs:
-        return np.zeros((0,0), dtype="float32")
+        return np.zeros((0, 0), dtype="float32")
     emb = np.vstack(all_embs).astype("float32")
-    try: np.save(EMBED_CACHE, emb)
-    except: pass
+    try:
+        np.save(EMBED_CACHE, emb)
+    except Exception:
+        pass
     return emb
 
-# Safety
-def safety_filter(text: str) -> bool:
-    t = text.lower()
-    if any(b in t for b in BAD_WORDS): return True
-    if any(w in t for w in ["kill yourself", "hurt", "bomb"]): return True
-    return False
+# -------------------------
+# Safety filters
+# -------------------------
+def safety_filter(text: str) -> Optional[str]:
+    """Return 'profanity', 'danger' or None"""
+    t = (text or "").lower()
+    # profanity
+    if any(p in t for p in PROFANITY):
+        return "profanity"
+    # dangerous / violent keywords
+    if any(b in t for b in BAD_WORDS) or any(phrase in t for phrase in ["kill myself", "kill me", "hurt someone"]):
+        return "danger"
+    return None
 
+# -------------------------
+# Small NLP helpers
+# -------------------------
 def _word_in_text(word: str, text: str) -> bool:
     try:
         return re.search(fr"\b{re.escape(word)}\b", text, flags=re.IGNORECASE) is not None
-    except:
+    except Exception:
         return word.lower() in text.lower()
 
-# Emotion classifier (hybrid, but when HF disabled we fallback to keywords)
-def classify_emotion(text: str) -> Tuple[str, float]:
-    t = text.strip()
-    if not t: return "neutral", 0.5
-    kw_scores = defaultdict(int)
-    low_t = t.lower()
-    for emo, kws in EMO_KEYWORDS.items():
-        for k in kws:
-            if k in low_t: kw_scores[emo] += 1
-
-    if USE_HF and HF_API_KEY:
-        try:
-            url = f"https://api-inference.huggingface.co/models/{EMOTION_MODEL}"
-            headers = {"Authorization": f"Bearer {HF_API_KEY}"}
-            resp = requests.post(url, headers=headers, json={"inputs": t}, timeout=8)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                    sorted_preds = sorted(data, key=lambda x: x.get("score", 0), reverse=True)
-                    top = sorted_preds[0]
-                    label = top.get("label", "").lower()
-                    score = float(top.get("score", 0.0))
-                    if "anger" in label or "annoy" in label: return "angry", score
-                    if "sad" in label: return "sad", score
-                    if "confus" in label or "curio" in label: return "confused", score
-                    if "joy" in label or "happy" in label: return "happy", score
-                if isinstance(data, dict):
-                    items = sorted(data.items(), key=lambda x: x[1], reverse=True)
-                    label = items[0][0].lower()
-                    score = float(items[0][1])
-                    if "anger" in label or "annoy" in label: return "angry", score
-                    if "sad" in label: return "sad", score
-                    if "confus" in label or "curio" in label: return "confused", score
-                    if "joy" in label or "happy" in label: return "happy", score
-        except Exception:
-            pass
-
-    # fallback: keyword scoring
-    if kw_scores:
-        top = max(kw_scores, key=kw_scores.get)
-        return top, 0.8
-    return "neutral", 0.5
-
-# Intent classifier
-def classify_intent(text: str) -> Tuple[str, float]:
-    t = (text or "").lower().strip()
-    if not t: return "unknown", 0.0
-    for g in GREETING_WORDS:
-        if t == g or t.startswith(g + " "): return "greeting", 1.0
-    for intent, kws in INTENT_RULES.items():
-        for k in kws:
-            if _word_in_text(k, t): return intent, 0.92
-    for p in PRODUCT_TRIGGERS:
-        if p in t: return "product", 0.82
-    if detect_order_id(t): return "order", 0.95
-    return "unknown", 0.35
-
 def detect_order_id(text: str) -> Optional[str]:
-    if not text: return None
+    if not text:
+        return None
+    # Support ORD-12345 or plain numbers like 12345
     m = re.search(r"\bORD[-_ ]?(\d{3,12})\b", text, flags=re.IGNORECASE)
-    if m: return m.group(1)
+    if m:
+        return m.group(1)
     m2 = re.search(r"\b(\d{3,12})\b", text)
     return m2.group(1) if m2 else None
 
 def _clean_product_name(s: str) -> str:
-    if not s: return ""
+    if not s:
+        return ""
     s = re.sub(r'[^\w\s]', ' ', s.lower())
-    fillers = ["kya","hai","milega","phone","mobile","iruka","unda","la","kaha","please","is","the","do","you","have","availability","available","stock","check","in"]
+    fillers = ["kya", "hai", "milega", "phone", "mobile", "please", "is", "the", "do", "you", "have", "availability", "available", "stock", "check", "in"]
     for f in fillers:
         s = re.sub(fr"\b{re.escape(f)}\b", " ", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s.title()
 
 def extract_product_strict(text: str) -> Optional[str]:
-    if not text: return None
+    if not text:
+        return None
     patterns = [
-        r"is\s+(?:the\s+)?(.{1,60}?)\s+available",
-        r"do you have\s+(?:the\s+)?(.{1,60}?)\??",
-        r"availability\s+of\s+(?:the\s+)?(.{1,60}?)\??",
-        r"stock\s+of\s+(?:the\s+)?(.{1,60}?)\??",
-        r"price\s+of\s+(?:the\s+)?(.{1,60}?)\??"
+        r"is\s+(?:the\s+)?(.{1,80}?)\s+available",
+        r"do you have\s+(?:the\s+)?(.{1,80}?)\??",
+        r"availability\s+of\s+(?:the\s+)?(.{1,80}?)\??",
+        r"stock\s+of\s+(?:the\s+)?(.{1,80}?)\??",
+        r"price\s+of\s+(?:the\s+)?(.{1,80}?)\??"
     ]
     for p in patterns:
         m = re.search(p, text, flags=re.IGNORECASE)
         if m:
             cand = _clean_product_name(m.group(1).strip())
-            if cand and len(cand) > 1: return cand
+            if cand and len(cand) > 1:
+                return cand
     tokens = text.split()
     if 1 <= len(tokens) <= 8:
         cand = _clean_product_name(text)
-        if cand.lower() not in {"yes","no","ok","thanks"}: return cand
+        if cand.lower() not in {"yes", "no", "ok", "thanks"}:
+            return cand
     return None
 
-def risk_from(similarity: float, intent_conf: float) -> str:
-    if intent_conf < 0.2 or similarity < 0.2: return "high"
-    if similarity < 0.45 or intent_conf < 0.35: return "medium"
-    return "low"
-
-# Simulated helpers
+# -------------------------
+# Simulated helpers (demo)
+# -------------------------
 def simulated_inventory_check(product_name: str) -> Dict[str, Any]:
     h = int(hashlib.md5(product_name.encode()).hexdigest()[:8], 16)
     available = (h % 2 == 0)
@@ -260,6 +275,27 @@ def simulated_price_lookup(product_name: str) -> str:
     price = 499 + (h % 2000)
     return f"₹{price}"
 
+ORDER_STAGES = [
+    "Order confirmed", "Packing", "Ready to ship", "Shipped",
+    "In transit", "Out for delivery", "Delivered"
+]
+
+def simulate_order(oid: str):
+    if not oid:
+        oid = "0"
+    try:
+        seed = int(re.sub(r'\D', '', oid) or 0) % 9999
+    except Exception:
+        seed = sum(ord(c) for c in oid) % 9999
+    np.random.seed(seed)
+    idx = int(np.random.randint(0, len(ORDER_STAGES)))
+    stage = ORDER_STAGES[idx]
+    eta = max(0, 5 - idx)
+    return {"order_id": oid, "stage": stage, "eta_days": eta, "status": "Delivered" if stage == "Delivered" else "In Progress", "history": ORDER_STAGES[:idx + 1]}
+
+# -------------------------
+# Topic graph and flows
+# -------------------------
 TOPIC_GRAPH = {
     "order": ["delivery", "tracking"],
     "product": ["pricing", "delivery"],
@@ -267,8 +303,9 @@ TOPIC_GRAPH = {
     "support": ["login", "guide"],
 }
 
-def graph_reason_suggestion(last_intent: Optional[str], new_intent: Optional[str], message: str = ""):
-    if not last_intent or not new_intent: return None
+def graph_reason_suggestion(last_intent: Optional[str], new_intent: Optional[str], message: str = "") -> Optional[str]:
+    if not last_intent or not new_intent:
+        return None
     if last_intent == "order" and "deliver" in message.lower():
         return f"Since you asked about {last_intent}, I can connect it to delivery. Continue?"
     if last_intent in TOPIC_GRAPH and new_intent in TOPIC_GRAPH[last_intent]:
@@ -287,6 +324,9 @@ FLOW_MESSAGES = {
     "product_name": "Which product are you asking about?"
 }
 
+# -------------------------
+# AI Engine
+# -------------------------
 class AIEngine:
     def __init__(self, kb_csv: str = KB_CSV):
         self.df = load_kb(kb_csv)
@@ -294,8 +334,8 @@ class AIEngine:
         self.memory = memory
 
     def _semantic_search(self, q: str) -> Tuple[Optional[int], float]:
-        # If embeddings not available, skip semantic search
-        if self.embeddings is None or self.embeddings.size == 0:
+        """Return (idx, similarity) if embedding-based KB search possible, else (None, 0.0)."""
+        if self.embeddings is None or getattr(self.embeddings, "size", 0) == 0:
             return None, 0.0
         emb = _hf_request_embeddings([q])
         if emb is None:
@@ -303,20 +343,26 @@ class AIEngine:
         qv = emb[0].astype("float32")
         keys = self.embeddings.astype("float32")
         sims = np.dot(keys, qv)
-        if sims.size == 0: return None, 0.0
+        if sims.size == 0:
+            return None, 0.0
         idx = int(np.argmax(sims))
         score = float(sims[idx])
+        # Clip score to 0..1 (dot product may vary)
         return idx, max(0.0, min(1.0, score))
 
-    def _detect_missing_fields(self, intent: str, msg: str):
+    def _detect_missing_fields(self, intent: str, msg: str) -> List[str]:
         missing = []
-        if intent not in FLOW_REQUIREMENTS: return missing
+        if intent not in FLOW_REQUIREMENTS:
+            return missing
         if intent == "order":
-            if not detect_order_id(msg): missing.append("order_id")
+            if not detect_order_id(msg):
+                missing.append("order_id")
         elif intent == "pricing":
-            if not re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE): missing.append("plan_type")
+            if not re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE):
+                missing.append("plan_type")
         elif intent == "product":
-            if not extract_product_strict(msg): missing.append("product_name")
+            if not extract_product_strict(msg):
+                missing.append("product_name")
         return missing
 
     def process(self, user_id: str, message: str) -> Dict[str, Any]:
@@ -343,7 +389,7 @@ class AIEngine:
                 "matched_question": None,
                 "intent": "unknown",
                 "emotion": "neutral",
-                "confidence": 0,
+                "confidence": 0.0,
                 "risk": "low",
                 "priority": "medium",
                 "missing_info": None,
@@ -351,31 +397,49 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        if safety_filter(msg):
+        # Safety check
+        safety = safety_filter(msg)
+        if safety == "profanity":
             return {
-                "final_answer": "I’m sorry — I can’t assist with that.",
+                "final_answer": "I’m here to help — let’s keep the conversation respectful 😊",
                 "matched_question": None,
                 "intent": "blocked",
                 "emotion": "neutral",
-                "confidence": 0,
+                "confidence": 0.0,
+                "risk": "medium",
+                "priority": "medium",
+                "missing_info": None,
+                "escalations": mem["escalations"],
+                "metadata": {**base_meta, "safety": "profanity"}
+            }
+        if safety == "danger":
+            return {
+                "final_answer": "I can’t assist with that request. If this is an emergency, please contact local authorities.",
+                "matched_question": None,
+                "intent": "blocked",
+                "emotion": "neutral",
+                "confidence": 0.0,
                 "risk": "high",
                 "priority": "high",
                 "missing_info": None,
                 "escalations": mem["escalations"],
-                "metadata": {**base_meta, "risk": "high"}
+                "metadata": {**base_meta, "safety": "danger"}
             }
 
-        # intent + emotion
-        intent, intent_conf = classify_intent(msg)
-        emotion, emo_conf = classify_emotion(msg)
+        # Intent + emotion
+        intent, intent_conf = self._classify_intent(msg)
+        emotion, emo_conf = self._classify_emotion(msg)
 
+        # Graph hint
         kg_hint = graph_reason_suggestion(mem["last_intent"], intent, msg)
-        if kg_hint: base_meta["hint"] = kg_hint
+        if kg_hint:
+            base_meta["hint"] = kg_hint
 
-        # handle expectations (autoflow)
+        # Handle expectation (autoflow)
         expect = mem["expect"]
         if expect:
             f = expect.get("field")
+            # order id expected
             if f == "order_id":
                 oid = detect_order_id(msg)
                 if oid:
@@ -394,10 +458,11 @@ class AIEngine:
                         "escalations": mem["escalations"],
                         "metadata": {**base_meta, "confidence": 1.0}
                     }
+            # plan type expected
             if f == "plan_type":
                 m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
                 if m:
-                    plan = m.group(1)
+                    plan = m.group(1).lower()
                     mem["expect"] = None
                     mem["last_intent"] = "pricing"
                     price = simulated_price_lookup(plan)
@@ -413,6 +478,7 @@ class AIEngine:
                         "escalations": mem["escalations"],
                         "metadata": {**base_meta, "plan_type": plan}
                     }
+            # product name expected
             if f == "product_name":
                 prod = extract_product_strict(msg)
                 if prod:
@@ -431,7 +497,7 @@ class AIEngine:
                         "metadata": {**base_meta, "product_name": prod}
                     }
 
-        # autoflow missing fields
+        # Ask for missing fields (autoflow)
         missing = self._detect_missing_fields(intent, msg)
         if missing and intent_conf >= AUTOFLOW_MIN_CONF:
             field = missing[0]
@@ -451,7 +517,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # greeting
+        # Greeting
         if intent == "greeting":
             mem["last_intent"] = "greeting"
             return {
@@ -467,7 +533,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # escalate
+        # Escalate
         if intent == "escalate":
             mem["escalations"] += 1
             mem["last_intent"] = "escalate"
@@ -484,7 +550,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # order handling
+        # Order handling
         order_id = detect_order_id(msg)
         if intent == "order" or order_id:
             if order_id:
@@ -517,14 +583,14 @@ class AIEngine:
                     "metadata": {**base_meta, "autoflow": True, "field_required": "order_id"}
                 }
 
-        # pricing
+        # Pricing
         if intent == "pricing":
             prod = extract_product_strict(msg)
-            # FIX: fallback to simple plan detection if product extraction fails
             if not prod:
+                # fallback to simple plan detection
                 m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
                 if m:
-                    prod = m.group(1)
+                    prod = m.group(1).lower()
             if prod:
                 price = simulated_price_lookup(prod)
                 mem["last_intent"] = "pricing"
@@ -555,7 +621,7 @@ class AIEngine:
                     "metadata": {**base_meta, "autoflow": True, "field_required": "plan_type"}
                 }
 
-        # login
+        # Login
         if intent == "login":
             mem["last_intent"] = "login"
             return {
@@ -571,7 +637,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # support
+        # Support
         if intent == "support":
             mem["last_intent"] = "support"
             return {
@@ -587,7 +653,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # analytics intent
+        # Analytics intent
         if intent == "analytics":
             mem["last_intent"] = "analytics"
             return {
@@ -603,7 +669,42 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # semantic KB search (only if embeddings available)
+        # Confirm (if user replies 'yes' etc.) — continue last intent flow if possible
+        if intent == "confirm":
+            last = mem["last_intent"]
+            if last == "order":
+                mem["expect"] = {"field": "order_id"}
+                return {
+                    "final_answer": "Sure — please share the Order ID.",
+                    "matched_question": None,
+                    "intent": "confirm",
+                    "emotion": emotion,
+                    "confidence": 0.9,
+                    "priority": "medium",
+                    "metadata": base_meta
+                }
+            if last == "pricing":
+                mem["expect"] = {"field": "plan_type"}
+                return {
+                    "final_answer": "Which plan? (Basic / Pro / Enterprise)",
+                    "matched_question": None,
+                    "intent": "confirm",
+                    "emotion": emotion,
+                    "confidence": 0.9,
+                    "priority": "medium",
+                    "metadata": base_meta
+                }
+            return {
+                "final_answer": "Okay! What would you like to do next?",
+                "matched_question": None,
+                "intent": "confirm",
+                "emotion": emotion,
+                "confidence": 0.9,
+                "priority": "low",
+                "metadata": base_meta
+            }
+
+        # Semantic KB search (if available)
         idx, sim = self._semantic_search(msg)
         if idx is None or sim < SIMILARITY_THRESHOLD:
             mem["last_intent"] = "unknown"
@@ -631,16 +732,81 @@ class AIEngine:
             "intent": "kb",
             "emotion": emotion,
             "confidence": sim,
-            "risk": risk_from(sim, intent_conf),
+            "risk": "low" if sim > 0.6 else "medium",
             "priority": "low",
             "missing_info": None,
             "escalations": mem["escalations"],
             "metadata": {**base_meta, "similarity": sim, "response_time": elapsed}
         }
 
-# quick test if run directly
+    # -------------------------
+    # Internal helper wrappers for classification (keeps code organized)
+    # -------------------------
+    def _classify_intent(self, text: str) -> Tuple[str, float]:
+        t = (text or "").lower().strip()
+        if not t:
+            return "unknown", 0.0
+        # greeting
+        for g in GREETING_WORDS:
+            if t == g or t.startswith(g + " "):
+                return "greeting", 1.0
+        # confirm
+        if any(t == c or t.startswith(c + " ") for c in CONFIRM_WORDS):
+            return "confirm", 0.95
+        # direct rules
+        for intent, kws in INTENT_RULES.items():
+            for k in kws:
+                if _word_in_text(k, t):
+                    return intent, 0.92
+        # product triggers
+        for p in INTENT_RULES.get("product", []):
+            if p in t:
+                return "product", 0.82
+        # order id detection
+        if detect_order_id(t):
+            return "order", 0.95
+        return "unknown", 0.35
+
+    def _classify_emotion(self, text: str) -> Tuple[str, float]:
+        t = (text or "").strip()
+        if not t:
+            return "neutral", 0.5
+        # HF emotion if available
+        if USE_HF and HF_API_KEY:
+            res = _hf_request_emotion(t)
+            if res:
+                label, score = res
+                if "anger" in label or "annoy" in label:
+                    return "angry", score
+                if "sad" in label:
+                    return "sad", score
+                if "confus" in label or "curio" in label:
+                    return "confused", score
+                if "joy" in label or "happy" in label:
+                    return "happy", score
+        # keyword fallback
+        kw_scores = defaultdict(int)
+        low = t.lower()
+        for emo, kws in EMO_KEYWORDS.items():
+            for k in kws:
+                if k in low:
+                    kw_scores[emo] += 1
+        if kw_scores:
+            top = max(kw_scores, key=kw_scores.get)
+            return top, 0.8
+        return "neutral", 0.5
+
+# -------------------------
+# CLI quick test
+# -------------------------
 if __name__ == "__main__":
     eng = AIEngine()
+    print("Smart Hybrid AI Engine — CLI test. Type a message.")
     while True:
-        t = input("You: ")
-        print(json.dumps(eng.process("local", t), indent=2))
+        try:
+            t = input("You: ")
+        except (KeyboardInterrupt, EOFError):
+            print("\nBye.")
+            break
+        out = eng.process("local", t)
+        print(json.dumps(out, indent=2, ensure_ascii=False))
