@@ -1,18 +1,11 @@
-# ai_engine_step5.py — Smart Hybrid AI Engine (Hackathon Winner Edition)
+# ai_engine_step5.py — Smart Hybrid AI Engine (Final, Pricing bug fixed)
 """
 Smart Hybrid AI Engine — Rule-based + Optional ML (HuggingFace) toggle.
 
-Default mode (recommended for hackathon): USE_HF = False
-Toggle USE_HF = true + set HUGGINGFACE_API_KEY to enable embeddings & HF emotion model.
+Default: USE_HF = False (recommended for hackathon)
+Set USE_HF=true and HUGGINGFACE_API_KEY to enable embeddings & HF emotion model.
 
-Features:
-- Intent classification (rules + keywords)
-- Emotion detection (keywords + optional HF)
-- Profanity & dangerous content filter
-- Autoflow for missing fields (order_id, plan_type, product_name)
-- Per-user memory (context + escalation count + expectations)
-- Optional semantic KB (embeddings + cosine similarity) with caching
-- Safe, predictable responses for demo
+Key fix: robust pricing handling (extracts plan_type -> returns structured metadata)
 """
 
 import os
@@ -34,15 +27,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 KB_CSV = os.path.join(BASE_DIR, "data", "knowledge_base_Sheet1.csv")
 EMBED_CACHE = os.path.join(BASE_DIR, "kb_embeddings.npy")
 
-# Feature toggles (set USE_HF=true and HUGGINGFACE_API_KEY in Render to enable)
 USE_HF = os.environ.get("USE_HF", "false").lower() == "true"
 HF_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", "").strip() if USE_HF else ""
 
-# Models for HF (only used when USE_HF True)
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 EMOTION_MODEL = "SamLowe/roberta-base-go_emotions"
 
-# Thresholds
 SIMILARITY_THRESHOLD = 0.55
 AUTOFLOW_MIN_CONF = 0.50
 
@@ -67,7 +57,25 @@ INTENT_RULES = {
     "product": ["product", "availability", "stock", "in stock", "do you have", "available"]
 }
 
-# Emotion fallback keywords
+# pricing catalog (demo — tweak as needed)
+PRICING_CATALOG = {
+    "basic": {
+        "price": "₹499",
+        "duration": "Monthly",
+        "features": ["Standard support", "Up to 5 users", "Core AI responses", "Order tracking"]
+    },
+    "pro": {
+        "price": "₹1499",
+        "duration": "Monthly",
+        "features": ["Priority support", "Up to 50 users", "Advanced AI flows", "Analytics export"]
+    },
+    "enterprise": {
+        "price": "Contact us",
+        "duration": "Custom",
+        "features": ["SLA & dedicated support", "Unlimited users", "Custom integrations", "On-prem options"]
+    }
+}
+
 EMO_KEYWORDS = {
     "angry": ["angry", "mad", "frustrated", "annoyed", "irritated", "pissed", "furious"],
     "sad": ["sad", "upset", "disappointed", "depressed", "unhappy", "sorrow"],
@@ -82,7 +90,7 @@ class Memory:
     def __init__(self, ctx_size: int = 20):
         self.data = defaultdict(lambda: {
             "escalations": 0,
-            "expect": None,           # e.g., {"field": "order_id"}
+            "expect": None,
             "last_intent": None,
             "context": deque(maxlen=ctx_size)
         })
@@ -121,13 +129,11 @@ def _safe_normalize(a: np.ndarray, axis=1, eps=1e-8) -> np.ndarray:
 # HuggingFace helpers (safe)
 # -------------------------
 def _hf_request_embeddings(texts: List[str]) -> Optional[np.ndarray]:
-    """Return normalized embeddings or None on failure. Uses HF Inference API."""
     if not USE_HF or not HF_API_KEY:
         return None
     url = f"https://api-inference.huggingface.co/models/{EMBED_MODEL}"
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     try:
-        # The HF inference for sentence-transformers accepts list of strings -> returns list of floats lists
         resp = requests.post(url, headers=headers, json={"inputs": texts}, timeout=20)
         if resp.status_code != 200:
             return None
@@ -140,7 +146,6 @@ def _hf_request_embeddings(texts: List[str]) -> Optional[np.ndarray]:
     return None
 
 def _hf_request_emotion(text: str) -> Optional[Tuple[str, float]]:
-    """Returns (label, score) or None."""
     if not USE_HF or not HF_API_KEY:
         return None
     url = f"https://api-inference.huggingface.co/models/{EMOTION_MODEL}"
@@ -150,7 +155,6 @@ def _hf_request_emotion(text: str) -> Optional[Tuple[str, float]]:
         if resp.status_code != 200:
             return None
         data = resp.json()
-        # Expecting list of dicts like [{"label":"joy","score":0.9}, ...]
         if isinstance(data, list) and data and isinstance(data[0], dict):
             preds = sorted(data, key=lambda x: x.get("score", 0), reverse=True)
             top = preds[0]
@@ -163,12 +167,10 @@ def _hf_request_emotion(text: str) -> Optional[Tuple[str, float]]:
 # Embedding caching and building
 # -------------------------
 def load_or_build_embeddings(df: pd.DataFrame) -> np.ndarray:
-    """Load cached embeddings or compute them (only when USE_HF True). If HF not enabled, return empty."""
     if df is None or len(df) == 0:
         return np.zeros((0, 0), dtype="float32")
     if not USE_HF:
         return np.zeros((0, 0), dtype="float32")
-    # try cache
     if os.path.exists(EMBED_CACHE):
         try:
             emb = np.load(EMBED_CACHE)
@@ -183,7 +185,6 @@ def load_or_build_embeddings(df: pd.DataFrame) -> np.ndarray:
         batch = texts[i:i + batch_size]
         emb = _hf_request_embeddings(batch)
         if emb is None:
-            # Failure — return empty to indicate disabled embeddings
             return np.zeros((0, 0), dtype="float32")
         all_embs.append(emb)
     if not all_embs:
@@ -199,12 +200,9 @@ def load_or_build_embeddings(df: pd.DataFrame) -> np.ndarray:
 # Safety filters
 # -------------------------
 def safety_filter(text: str) -> Optional[str]:
-    """Return 'profanity', 'danger' or None"""
     t = (text or "").lower()
-    # profanity
     if any(p in t for p in PROFANITY):
         return "profanity"
-    # dangerous / violent keywords
     if any(b in t for b in BAD_WORDS) or any(phrase in t for phrase in ["kill myself", "kill me", "hurt someone"]):
         return "danger"
     return None
@@ -221,7 +219,6 @@ def _word_in_text(word: str, text: str) -> bool:
 def detect_order_id(text: str) -> Optional[str]:
     if not text:
         return None
-    # Support ORD-12345 or plain numbers like 12345
     m = re.search(r"\bORD[-_ ]?(\d{3,12})\b", text, flags=re.IGNORECASE)
     if m:
         return m.group(1)
@@ -270,8 +267,13 @@ def simulated_inventory_check(product_name: str) -> Dict[str, Any]:
     qty = (h % 20) + 1 if available else 0
     return {"available": available, "quantity": qty}
 
-def simulated_price_lookup(product_name: str) -> str:
-    h = int(hashlib.sha1(product_name.encode()).hexdigest()[:8], 16)
+def simulated_price_lookup(plan_or_prod: str) -> str:
+    # If plan name given (basic/pro/enterprise) return catalog price
+    key = (plan_or_prod or "").strip().lower()
+    if key in PRICING_CATALOG:
+        return PRICING_CATALOG[key]["price"]
+    # fallback: deterministic generated price for product name
+    h = int(hashlib.sha1(plan_or_prod.encode()).hexdigest()[:8], 16)
     price = 499 + (h % 2000)
     return f"₹{price}"
 
@@ -334,7 +336,6 @@ class AIEngine:
         self.memory = memory
 
     def _semantic_search(self, q: str) -> Tuple[Optional[int], float]:
-        """Return (idx, similarity) if embedding-based KB search possible, else (None, 0.0)."""
         if self.embeddings is None or getattr(self.embeddings, "size", 0) == 0:
             return None, 0.0
         emb = _hf_request_embeddings([q])
@@ -347,7 +348,6 @@ class AIEngine:
             return None, 0.0
         idx = int(np.argmax(sims))
         score = float(sims[idx])
-        # Clip score to 0..1 (dot product may vary)
         return idx, max(0.0, min(1.0, score))
 
     def _detect_missing_fields(self, intent: str, msg: str) -> List[str]:
@@ -358,7 +358,7 @@ class AIEngine:
             if not detect_order_id(msg):
                 missing.append("order_id")
         elif intent == "pricing":
-            if not re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE):
+            if not re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE) and not extract_product_strict(msg):
                 missing.append("plan_type")
         elif intent == "product":
             if not extract_product_strict(msg):
@@ -397,7 +397,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # Safety check
+        # Safety
         safety = safety_filter(msg)
         if safety == "profanity":
             return {
@@ -439,7 +439,6 @@ class AIEngine:
         expect = mem["expect"]
         if expect:
             f = expect.get("field")
-            # order id expected
             if f == "order_id":
                 oid = detect_order_id(msg)
                 if oid:
@@ -456,9 +455,8 @@ class AIEngine:
                         "priority": "high",
                         "missing_info": None,
                         "escalations": mem["escalations"],
-                        "metadata": {**base_meta, "confidence": 1.0}
+                        "metadata": {**base_meta, "order_id": oid, "confidence": 1.0}
                     }
-            # plan type expected
             if f == "plan_type":
                 m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
                 if m:
@@ -466,8 +464,9 @@ class AIEngine:
                     mem["expect"] = None
                     mem["last_intent"] = "pricing"
                     price = simulated_price_lookup(plan)
+                    # structured response for pricing
                     return {
-                        "final_answer": f"The price for {plan.title()} is approx {price}. Want to proceed?",
+                        "final_answer": self._format_pricing_response(plan),
                         "matched_question": None,
                         "intent": "pricing",
                         "emotion": emotion,
@@ -476,9 +475,8 @@ class AIEngine:
                         "priority": "medium",
                         "missing_info": None,
                         "escalations": mem["escalations"],
-                        "metadata": {**base_meta, "plan_type": plan}
+                        "metadata": {**base_meta, "plan_type": plan, "price": price}
                     }
-            # product name expected
             if f == "product_name":
                 prod = extract_product_strict(msg)
                 if prod:
@@ -583,19 +581,27 @@ class AIEngine:
                     "metadata": {**base_meta, "autoflow": True, "field_required": "order_id"}
                 }
 
-        # Pricing
+        # Pricing (FIXED: robust plan extraction + structured response)
         if intent == "pricing":
+            # Try product-style extraction first (for "price of <product>")
             prod = extract_product_strict(msg)
-            if not prod:
-                # fallback to simple plan detection
+            plan = None
+            # If product-like text found and it matches a pricing plan name, prefer plan
+            if prod and prod.lower() in PRICING_CATALOG:
+                plan = prod.lower()
+            # explicit plan name detection
+            if not plan:
                 m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
                 if m:
-                    prod = m.group(1).lower()
-            if prod:
-                price = simulated_price_lookup(prod)
+                    plan = m.group(1).lower()
+            # fallback: if message mentions "plan" but no plan_type, ask via autoflow
+            if plan:
+                price = simulated_price_lookup(plan)
                 mem["last_intent"] = "pricing"
+                # Compose a nice multi-line pricing response
+                formatted = self._format_pricing_response(plan)
                 return {
-                    "final_answer": f"The price for \"{prod}\" is approx {price}. Need delivery info?",
+                    "final_answer": formatted,
                     "matched_question": None,
                     "intent": "pricing",
                     "emotion": emotion,
@@ -604,22 +610,22 @@ class AIEngine:
                     "priority": "medium",
                     "missing_info": None,
                     "escalations": mem["escalations"],
-                    "metadata": {**base_meta, "product_name": prod}
+                    "metadata": {**base_meta, "plan_type": plan, "price": price}
                 }
-            if intent_conf >= AUTOFLOW_MIN_CONF:
-                mem["expect"] = {"field": "plan_type"}
-                return {
-                    "final_answer": FLOW_MESSAGES["plan_type"],
-                    "matched_question": None,
-                    "intent": "pricing",
-                    "emotion": emotion,
-                    "confidence": intent_conf,
-                    "risk": "low",
-                    "priority": "medium",
-                    "missing_info": "plan_type",
-                    "escalations": mem["escalations"],
-                    "metadata": {**base_meta, "autoflow": True, "field_required": "plan_type"}
-                }
+            # no plan detected -> ask which plan (autoflow)
+            mem["expect"] = {"field": "plan_type"}
+            return {
+                "final_answer": FLOW_MESSAGES["plan_type"],
+                "matched_question": None,
+                "intent": "pricing",
+                "emotion": emotion,
+                "confidence": intent_conf,
+                "risk": "low",
+                "priority": "medium",
+                "missing_info": "plan_type",
+                "escalations": mem["escalations"],
+                "metadata": {**base_meta, "autoflow": True, "field_required": "plan_type"}
+            }
 
         # Login
         if intent == "login":
@@ -669,7 +675,7 @@ class AIEngine:
                 "metadata": base_meta
             }
 
-        # Confirm (if user replies 'yes' etc.) — continue last intent flow if possible
+        # Confirm: continue last intent
         if intent == "confirm":
             last = mem["last_intent"]
             if last == "order":
@@ -740,29 +746,25 @@ class AIEngine:
         }
 
     # -------------------------
-    # Internal helper wrappers for classification (keeps code organized)
+    # Internal helper wrappers
     # -------------------------
     def _classify_intent(self, text: str) -> Tuple[str, float]:
         t = (text or "").lower().strip()
         if not t:
             return "unknown", 0.0
-        # greeting
         for g in GREETING_WORDS:
             if t == g or t.startswith(g + " "):
                 return "greeting", 1.0
-        # confirm
         if any(t == c or t.startswith(c + " ") for c in CONFIRM_WORDS):
             return "confirm", 0.95
-        # direct rules
         for intent, kws in INTENT_RULES.items():
             for k in kws:
                 if _word_in_text(k, t):
                     return intent, 0.92
-        # product triggers
+        # product triggers (explicit)
         for p in INTENT_RULES.get("product", []):
             if p in t:
                 return "product", 0.82
-        # order id detection
         if detect_order_id(t):
             return "order", 0.95
         return "unknown", 0.35
@@ -771,7 +773,6 @@ class AIEngine:
         t = (text or "").strip()
         if not t:
             return "neutral", 0.5
-        # HF emotion if available
         if USE_HF and HF_API_KEY:
             res = _hf_request_emotion(t)
             if res:
@@ -784,7 +785,6 @@ class AIEngine:
                     return "confused", score
                 if "joy" in label or "happy" in label:
                     return "happy", score
-        # keyword fallback
         kw_scores = defaultdict(int)
         low = t.lower()
         for emo, kws in EMO_KEYWORDS.items():
@@ -795,6 +795,21 @@ class AIEngine:
             top = max(kw_scores, key=kw_scores.get)
             return top, 0.8
         return "neutral", 0.5
+
+    def _format_pricing_response(self, plan_key: str) -> str:
+        """Return a multi-line human-friendly pricing response for a known plan_key."""
+        plan_key = (plan_key or "").lower()
+        info = PRICING_CATALOG.get(plan_key)
+        if not info:
+            # fallback generic
+            price = simulated_price_lookup(plan_key)
+            return f"💰 Pricing\n\n• Plan: {plan_key.title()}\n• Price: {price}\n\nNeed more details?"
+        features = info.get("features", [])
+        feat_text = "\n".join([f"• {f}" for f in features])
+        return (f"💰 Pricing — {plan_key.title()} Plan\n\n"
+                f"• Price: {info.get('price')}\n"
+                f"• Duration: {info.get('duration')}\n\n"
+                f"Key features:\n{feat_text}\n\nNeed upgrade options or billing details?")
 
 # -------------------------
 # CLI quick test
