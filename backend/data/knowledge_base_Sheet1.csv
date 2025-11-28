@@ -1,101 +1,101 @@
-Question,Intent,Emotion,Answer
-"1. Hi, I need help understanding your product features.",Product Inquiry,Neutral,Sure! I can walk you through our main features. What are you looking for exactly?
-2. Your tool is not loading from the dashboard.,Report Issue,Frustrated,I’m sorry about that. Can you tell me what page you’re stuck on?
-3. Can you show me the pricing plans?,Pricing Inquiry,Neutral,Absolutely! Here’s a link to our pricing page.
-"4. I forgot my password, how can I reset it?",Account Support,Confused,No worries — you can reset it using the “Forgot Password” option on the login page.
-5. I want to upgrade my plan to premium.,Plan Upgrade,Interested,Great choice! I can help you with the upgrade steps.
-6. Why is your support team not replying to my emails?,Complaint,Angry,I’m sorry for the delay. Let me check your ticket status right away.
-7. Do you have an API for developers?,API Inquiry,Curious,"Yes, we do! I can share the API documentation link."
-8. I'm not satisfied with the service.,Negative Feedback,Disappointed,I’m sorry to hear that. Can you tell me what went wrong?
-9. Can I integrate your product with Zoho CRM?,Integration Query,Interested,"Yes, our product integrates smoothly with Zoho CRM."
-10. Do you offer free trials?,Trial Inquiry,Curious,Yes! We offer a free trial for new users.
-11. My payment failed but money was deducted.,Payment Issue,Worried,I understand! Let me check your transaction details.
-12. How can I download the monthly report?,Feature Query,Neutral,You can download it from the Reports section under “Monthly Summary.”
-"13. Hey, just checking if you’re available?",Greeting,Happy,"Hi! Yes, I’m here to help you anytime."
-14. This app keeps crashing!,Bug Report,Angry,Really sorry for that! Could you tell me what device you’re using?
-15. Does your product support multiple languages?,Feature Inquiry,Curious,"Yes, we support more than 15 languages."
-"16. Thanks, that was helpful!",Appreciation,Happy,You’re welcome! I’m glad I could help.
-17. I need someone from sales to contact me.,Contact Request,Neutral,Sure! I’ll forward your details to our sales team.
-18. I want a refund for my purchase.,Refund Request,Determined,"Of course, I’ll guide you through the refund process."
-19. I love your product!,Positive Feedback,Excited,That means a lot! Thank you for your support.
-20. My data is not syncing across devices.,Sync Issue,Frustrated,I can help you fix that. When did you last sync it?
-21. Can you create a new ticket for my issue?,Ticket Request,Neutral,Sure! I’ll generate a support ticket for you.
-22. Is there a dark mode option?,Feature Query,Curious,Yes! You can enable it under Appearance settings.
-23. Why is the chatbot not responding correctly?,Bot Issue,Annoyed,I’m sorry about that. Let me check the bot logs for you.
-24. What’s your refund policy?,Policy Inquiry,Neutral,Our refund policy allows cancellation within 15 days.
-25. I am unable to login since morning.,Login Issue,Worried,That sounds frustrating. Let me help you regain access.
-26. Can you help me track my order?,Order Tracking,Neutral,"Sure! Please share your order ID, and I’ll check the status."
-27. The invoice is not downloading.,Invoice Issue,Frustrated,I can help fix that. Are you getting an error message?
-28. How do I access the admin panel?,Access Query,Curious,You can access it from the top menu under “Admin Console.”
-29. Are there any discounts available?,Discount Inquiry,Curious,Yes! We have seasonal offers. Want me to check eligibility?
-30. I think someone hacked my account.,Security Concern,Scared,I understand the urgency. Let’s secure your account quickly.
-31. Your new UI looks amazing!,Appreciation,Happy,Thank you! Our team worked really hard on it.
-32. My free trial expired too soon.,Trial Issue,Confused,Let me check the trial duration for your account.
-33. Can you extend my trial?,Trial Extension Request,Hopeful,I can check if you're eligible for an extension.
-34. Do you support two-factor authentication?,Security Inquiry,Curious,"Yes, we support 2FA for added protection."
-35. Why is your page taking so long to load?,Performance Complaint,Annoyed,Sorry for the delay. I’ll check if there’s a server issue.
-36. I want to delete my account permanently.,Account Deletion,Determined,I can help you with that. Please confirm once more.
-37. I need the steps to set up integration.,Setup Guidance,Neutral,Sure! Here’s the step-by-step integration process.
-38. The chatbot is giving wrong responses again.,Bot Complaint,Angry,Sorry about that. I’ll investigate the bot training data.
-39. Can I use your tool offline?,Feature Capability,Curious,Some features are available offline. Which one do you need?
-40. Send me your documentation link.,Documentation Request,Neutral,Here you go! Here’s the complete documentation.
-41. I’m confused about how this feature works.,Clarification Request,Confused,"No problem, I’ll explain it in simple steps."
-42. My report is showing empty data.,Data Issue,Worried,Let’s check your filters and data sources.
-43. How many users can access one account?,Usage Limitation,Curious,It depends on your subscription plan. Want me to check?
-44. This is the worst support ever!,Strong Complaint,Angry,I’m really sorry you feel this way. Let me fix this ASAP.
-45. I want to change my registered email.,Account Update,Neutral,I can help with that. Please share your new email.
-46. Can you schedule a demo for tomorrow?,Demo Request,Interested,Sure! I’ll book a demo for your preferred time.
-47. Is your data encrypted?,Security Inquiry,Concerned,"Yes, all data is encrypted at rest and in transit."
-48. Nothing is working!,General Frustration,Angry,I understand your frustration. Let’s troubleshoot step by step.
-49. How do I download my billing history?,Billing Inquiry,Neutral,You can download it under Billing > History.
-50. Thanks for solving my issue quickly!,Appreciation,Relieved,Always happy to help! Glad it’s resolved.
-51. Can you help me update my subscription plan?,Subscription Update,Neutral,Sure! Tell me which plan you want to switch to.
-52. My screen is stuck on loading.,Technical Issue,Annoyed,Let’s try refreshing or clearing cache to fix this.
-53. Do you provide onboarding support?,Onboarding Inquiry,Curious,Yes! We provide full onboarding assistance.
-54. The chatbot isn’t responding.,Bot Issue,Frustrated,I’ll restart the module and check the logs.
-55. I forgot my admin password.,Password Reset,Worried,No worries! You can reset it via the recovery email.
-56. Is there a way to export data to CSV?,Export Request,Curious,"Yes, go to Reports → Export → Choose CSV."
-57. I want to invite my team members.,Team Management,Neutral,You can add members under Settings → Users.
-58. I'm seeing an ""Unauthorized Access"" error.,Access Error,Confused,This error appears if your session expired. Try logging in again.
-59. How do I enable dark mode?,UI Customization,Curious,You can enable dark mode in Display Settings.
-60. Why is your support team so slow?,Complaint,Angry,I’m sorry you had to wait. I’ll try resolving your issue quickly.
-61. Is your product GDPR compliant?,Compliance Inquiry,Serious,"Yes, we follow full GDPR guidelines for data privacy."
-62. Can you help me integrate with Zapier?,Integration Support,Neutral,Sure! I can guide you through the Zapier setup.
-63. I accidentally deleted a file!,Data Recovery,Panicked,Don’t worry! Recently deleted files can be restored.
-64. I’m unable to upload images.,Upload Issue,Frustrated,Let’s check your file size and format.
-65. Do I need technical knowledge to use this?,General Inquiry,Curious,Not at all! It’s beginner-friendly.
-66. This feature saved me so much time!,Appreciation,Happy,That’s wonderful to hear! 🎉
-67. Can you generate a daily report for me?,Report Request,Neutral,Sure! What format do you prefer? PDF or CSV?
-68. Your chatbot feels slow today.,Performance Complaint,Annoyed,I’ll check the bot latency and server load.
-69. Where can I see my API keys?,API Inquiry,Curious,You can find them under Developer Settings → API Keys.
-70. I need help with webhooks.,Webhook Support,Neutral,"Sure, I can walk you through webhook configuration."
-71. Does your system support multilingual content?,Feature Inquiry,Curious,"Yes, we support multiple languages!"
-72. My dashboard looks empty.,UI Issue,Confused,Let’s check if the correct widgets are enabled.
-73. Why am I getting so many emails?,Notification Issue,Annoyed,You can reduce notifications under Preferences.
-74. Can I cancel my subscription anytime?,Cancellation Inquiry,Neutral,"Yes, you can cancel anytime from Billing Settings."
-75. I love how simple your UI is!,Appreciation,Happy,Thank you! We focus a lot on clean design.
-76. How do I connect this with my mobile app?,Integration Help,Curious,You can integrate using our mobile SDK. Need steps?
-77. My data is showing wrong values.,Data Error,Worried,Let’s verify your input source and sync status.
-78. Can you resend the verification email?,Email Assistance,Neutral,Sure! I’ll resend it right away.
-79. Is there a tutorial for beginners?,Learning Request,Curious,Yes! We have a step-by-step beginner guide.
-80. The system logged me out automatically.,Session Issue,Confused,This happens after inactivity. Please sign in again.
-81. Can I edit the chatbot’s welcome message?,Chatbot Customization,Neutral,Yes! You can modify it in Bot Settings → Welcome Flow.
-82. Why is my automation not running?,Automation Issue,Frustrated,Let’s check the trigger and condition settings.
-83. Do you have discounts for students?,Pricing Inquiry,Hopeful,"Yes, we provide special offers for students."
-84. I need monthly analytics report.,Report Request,Neutral,Sure! I can generate a monthly analytics summary.
-85. My webhook is failing with error 400.,Webhook Debugging,Confused,A 400 error means invalid payload. Let’s inspect it.
-86. Does this platform support SSO?,Feature Inquiry,Curious,Yes! We support SSO using OAuth and SAML.
-87. I can’t find my previous conversations.,Conversation History Issue,Worried,Your chats are saved under Chat Logs → History.
-88. How to customize the chat widget color?,Widget Customization,Neutral,Go to Appearance → Colors and choose your theme.
-89. Can you delete my account permanently?,Account Deletion,Serious,"Yes, but once deleted it cannot be undone. Shall I proceed?"
-90. Why is my CRM integration breaking?,Integration Issue,Frustrated,Let’s reconnect your CRM token to fix this.
-91. I want to change my phone number.,Profile Update,Neutral,Sure! You can update it in Account Settings.
-92. The UI looks broken on my laptop.,UI Bug,Annoyed,Let’s check your resolution and browser version.
-93. I need help scheduling a demo.,Demo Inquiry,Neutral,I can book a demo slot for you. What's your preferred time?
-94. Are my chats encrypted?,Security Inquiry,Serious,"Yes, all chats are fully encrypted end-to-end."
-95. Why are my leads not syncing?,Sync Issue,Confused,Let’s check API limits and sync frequency.
-96. This is the best customer support ever!,Appreciation,Happy,Thank you! We love hearing that! ❤️
-97. Does this work offline?,Feature Check,Curious,"Some features work offline, but not all."
-98. I'm getting duplicate notifications.,Notification Bug,Annoyed,I’ll help you fix your notification settings.
-99. Can you show me my billing history?,Billing Inquiry,Neutral,Sure! You can find it under Billing → History.
-100. How do I contact live support?,Support Request,Neutral,You can reach our team via Live Chat Support anytime.
+Question,Answer
+Hi, I need help understanding your product features.,Sure! I can walk you through our main features. What are you looking for exactly?
+Your tool is not loading from the dashboard.,I'm sorry about that. Can you tell me what page you're stuck on?
+Can you show me the pricing plans?,Absolutely! Here’s a link to our pricing page.
+I forgot my password, how can I reset it?,No worries — you can reset it using the "Forgot Password" option on the login page.
+I want to upgrade my plan to premium.,Great choice! I can help you with the upgrade steps.
+Why is your support team not replying to my emails?,I'm sorry for the delay. Let me check your ticket status right away.
+Do you have an API for developers?,Yes, we do! I can share the API documentation link.
+I'm not satisfied with the service.,I'm sorry to hear that. Can you tell me what went wrong?
+Can I integrate your product with Zoho CRM?,Yes, our product integrates smoothly with Zoho CRM.
+Do you offer free trials?,Yes! We offer a free trial for new users.
+My payment failed but money was deducted.,I understand! Let me check your transaction details.
+How can I download the monthly report?,You can download it from the Reports section under "Monthly Summary."
+Hey, just checking if you're available?,Hi! Yes, I'm here to help you anytime.
+This app keeps crashing!,Really sorry for that! Could you tell me what device you're using?
+Does your product support multiple languages?,Yes, we support more than 15 languages.
+Thanks, that was helpful!,You're welcome! I'm glad I could help.
+I need someone from sales to contact me.,Sure! I'll forward your details to our sales team.
+I want a refund for my purchase.,Of course, I'll guide you through the refund process.
+I love your product!,That means a lot! Thank you for your support.
+My data is not syncing across devices.,I can help you fix that. When did you last sync it?
+Can you create a new ticket for my issue?,Sure! I'll generate a support ticket for you.
+Is there a dark mode option?,Yes! You can enable it under Appearance settings.
+Why is the chatbot not responding correctly?,I'm sorry about that. Let me check the bot logs for you.
+What's your refund policy?,Our refund policy allows cancellation within 15 days.
+I am unable to login since morning.,That sounds frustrating. Let me help you regain access.
+Can you help me track my order?,Sure! Please share your order ID, and I'll check the status.
+The invoice is not downloading.,I can help fix that. Are you getting an error message?
+How do I access the admin panel?,You can access it from the top menu under "Admin Console."
+Are there any discounts available?,Yes! We have seasonal offers. Want me to check eligibility?
+I think someone hacked my account.,I understand the urgency. Let's secure your account quickly.
+Your new UI looks amazing!,Thank you! Our team worked really hard on it.
+My free trial expired too soon.,Let me check the trial duration for your account.
+Can you extend my trial?,I can check if you're eligible for an extension.
+Do you support two-factor authentication?,Yes, we support 2FA for added protection.
+Why is your page taking so long to load?,Sorry for the delay. I'll check if there's a server issue.
+I want to delete my account permanently.,I can help you with that. Please confirm once more.
+I need the steps to set up integration.,Sure! Here's the step-by-step integration process.
+The chatbot is giving wrong responses again.,Sorry about that. I'll investigate the bot training data.
+Can I use your tool offline?,Some features are available offline. Which one do you need?
+Send me your documentation link.,Here you go! Here's the complete documentation.
+I'm confused about how this feature works.,No problem, I'll explain it in simple steps.
+My report is showing empty data.,Let's check your filters and data sources.
+How many users can access one account?,It depends on your subscription plan. Want me to check?
+This is the worst support ever!,I'm really sorry you feel this way. Let me fix this ASAP.
+I want to change my registered email.,I can help with that. Please share your new email.
+Can you schedule a demo for tomorrow?,Sure! I'll book a demo for your preferred time.
+Is your data encrypted?,Yes, all data is encrypted at rest and in transit.
+Nothing is working!,I understand your frustration. Let's troubleshoot step by step.
+How do I download my billing history?,You can download it under Billing → History.
+Thanks for solving my issue quickly!,Always happy to help! Glad it's resolved.
+Can you help me update my subscription plan?,Sure! Tell me which plan you want to switch to.
+My screen is stuck on loading.,Let's try refreshing or clearing cache to fix this.
+Do you provide onboarding support?,Yes! We provide full onboarding assistance.
+The chatbot isn't responding.,I'll restart the module and check the logs.
+I forgot my admin password.,No worries! You can reset it via the recovery email.
+Is there a way to export data to CSV?,Yes, go to Reports → Export → Choose CSV.
+I want to invite my team members.,You can add members under Settings → Users.
+I'm seeing an "Unauthorized Access" error.,This error appears if your session expired. Try logging in again.
+How do I enable dark mode?,You can enable dark mode in Display Settings.
+Why is your support team so slow?,I'm sorry you had to wait. I'll try resolving your issue quickly.
+Is your product GDPR compliant?,Yes, we follow full GDPR guidelines for data privacy.
+Can you help me integrate with Zapier?,Sure! I can guide you through the Zapier setup.
+I accidentally deleted a file!,Don't worry! Recently deleted files can be restored.
+I'm unable to upload images.,Let's check your file size and format.
+Do I need technical knowledge to use this?,Not at all! It's beginner-friendly.
+This feature saved me so much time!,That's wonderful to hear! 🎉
+Can you generate a daily report for me?,Sure! What format do you prefer? PDF or CSV?
+Your chatbot feels slow today.,I'll check the bot latency and server load.
+Where can I see my API keys?,You can find them under Developer Settings → API Keys.
+I need help with webhooks.,Sure, I can walk you through webhook configuration.
+Does your system support multilingual content?,Yes, we support multiple languages!
+My dashboard looks empty.,Let's check if the correct widgets are enabled.
+Why am I getting so many emails?,You can reduce notifications under Preferences.
+Can I cancel my subscription anytime?,Yes, you can cancel anytime from Billing Settings.
+I love how simple your UI is!,Thank you! We focus a lot on clean design.
+How do I connect this with my mobile app?,You can integrate using our mobile SDK. Need steps?
+My data is showing wrong values.,Let's verify your input source and sync status.
+Can you resend the verification email?,Sure! I'll resend it right away.
+Is there a tutorial for beginners?,Yes! We have a step-by-step beginner guide.
+The system logged me out automatically.,This happens after inactivity. Please sign in again.
+Can I edit the chatbot’s welcome message?,Yes! You can modify it in Bot Settings → Welcome Flow.
+Why is my automation not running?,Let's check the trigger and condition settings.
+Do you have discounts for students?,Yes, we provide special offers for students.
+I need monthly analytics report.,Sure! I can generate a monthly analytics summary.
+My webhook is failing with error 400.,A 400 error means invalid payload. Let's inspect it.
+Does this platform support SSO?,Yes! We support SSO using OAuth and SAML.
+I can't find my previous conversations.,Your chats are saved under Chat Logs → History.
+How to customize the chat widget color?,Go to Appearance → Colors and choose your theme.
+Can you delete my account permanently?,Yes, but once deleted it cannot be undone. Shall I proceed?
+Why is my CRM integration breaking?,Let's reconnect your CRM token to fix this.
+I want to change my phone number.,Sure! You can update it in Account Settings.
+The UI looks broken on my laptop.,Let's check your resolution and browser version.
+I need help scheduling a demo.,I can book a demo slot for you. What's your preferred time?
+Are my chats encrypted?,Yes, all chats are fully encrypted end-to-end.
+Why are my leads not syncing?,Let's check API limits and sync frequency.
+This is the best customer support ever!,Thank you! We love hearing that! ❤️
+Does this work offline?,Some features work offline, but not all.
+I'm getting duplicate notifications.,I'll help you fix your notification settings.
+Can you show me my billing history?,Sure! You can find it under Billing → History.
+How do I contact live support?,You can reach our team via Live Chat Support anytime.
