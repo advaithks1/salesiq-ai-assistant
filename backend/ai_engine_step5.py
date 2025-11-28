@@ -1,13 +1,15 @@
-# ai_engine_step5.py — WINNER EDITION (final)
+# ai_engine_step5.py — FINAL HACKATHON VERSION (WITH PRODUCT RECOMMENDATION)
 """
-Zoho SalesIQ Hackathon – High-Scoring AI Engine
+Lightweight AI engine for Zoho SalesIQ Hackathon.
+
 Features:
-- Intent AI (order, pricing, login, support, escalate)
-- Emotion AI (happy, angry, neutral)
-- Self-harm + hate speech filter
-- Context memory
-- Deterministic order simulation
-- Safe structured output for SalesIQ
+- Rule-based intent detection
+- Keyword emotion detection
+- Order tracking simulation
+- Pricing system
+- Product recommendation system
+- Safe responses (no emojis)
+- Clean metadata for SalesIQ widget
 """
 
 import re
@@ -16,9 +18,10 @@ from collections import defaultdict, deque
 from typing import Dict, Any, Tuple
 
 
-# -----------------------------
-# INTENT RULES
-# -----------------------------
+# ------------------------------------------------------
+# INTENT + EMOTION RULES
+# ------------------------------------------------------
+
 GREETING_WORDS = {"hi", "hello", "hey", "hii", "hiya"}
 
 INTENT_RULES = {
@@ -26,79 +29,76 @@ INTENT_RULES = {
     "pricing": ["price", "pricing", "plan", "subscription", "cost"],
     "login": ["login", "signin", "forgot", "password", "reset"],
     "support": ["help", "issue", "problem", "error", "bug", "crash"],
-    "escalate": ["agent", "human", "representative", "supervisor"]
+    "escalate": ["agent", "human", "representative", "supervisor"],
+    "product": ["recommend", "suggest", "best camera", "which camera",
+                "camera", "product", "cctv", "buy", "best"]
 }
 
-SELF_HARM = ["die", "kill myself", "suicide", "end my life", "harm myself"]
-ABUSE = ["fuck", "shit", "bitch", "bastard"]
-TERROR = ["bomb", "terror", "attack"]
 
-
-# -----------------------------
-# INTENT CLASSIFIER
-# -----------------------------
 def classify_intent(text: str) -> Tuple[str, float]:
-    t = text.lower().strip()
+    msg = (text or "").lower().strip()
 
-    if not t:
+    if not msg:
         return "unknown", 0.0
 
-    # greetings
+    # Greeting
     for g in GREETING_WORDS:
-        if t == g or t.startswith(g + " "):
+        if msg == g or msg.startswith(g + " "):
             return "greeting", 1.0
 
-    # rule-based
+    # Intent rules
     for intent, kws in INTENT_RULES.items():
         for k in kws:
-            if k in t:
+            if k in msg:
                 return intent, 0.92
 
-    # numeric order id
-    if re.search(r"\b(\d{3,12})\b", t):
+    # Pure numbers = order ID
+    if re.search(r"\b(\d{3,12})\b", msg):
         return "order", 0.95
 
-    return "unknown", 0.4
+    return "unknown", 0.35
 
 
-# -----------------------------
-# EMOTION
-# -----------------------------
 def classify_emotion(text: str) -> Tuple[str, float]:
-    t = text.lower()
-    if any(k in t for k in ["thanks", "thank", "great", "nice"]):
-        return "happy", 0.9
-    if any(k in t for k in ["hate", "angry", "frustrat", "annoy"]):
-        return "angry", 0.8
-    if any(k in t for k in ABUSE):
-        return "angry", 1.0
+    msg = (text or "").lower()
+
+    if any(w in msg for w in ["thanks", "thank", "nice", "great", "love"]):
+        return "happy", 0.8
+    if any(w in msg for w in ["angry", "hate", "fuck", "frustrat"]):
+        return "angry", 0.9
+
     return "neutral", 0.5
 
 
-# -----------------------------
+# ------------------------------------------------------
 # MEMORY
-# -----------------------------
+# ------------------------------------------------------
+
 class Memory:
-    def __init__(self):
-        self.data = defaultdict(lambda: {
-            "context": deque(maxlen=20),
-            "last_intent": None,
-            "escalations": 0
-        })
+    def __init__(self, ctx_size=20):
+        self.data = defaultdict(
+            lambda: {
+                "escalations": 0,
+                "last_intent": None,
+                "expect": None,
+                "context": deque(maxlen=ctx_size)
+            }
+        )
 
     def get(self, uid):
         return self.data[uid]
 
-    def push(self, uid, speaker, text):
+    def push_context(self, uid, speaker, text):
         self.data[uid]["context"].append({"speaker": speaker, "text": text})
 
 
 memory = Memory()
 
 
-# -----------------------------
-# ORDER SYSTEM
-# -----------------------------
+# ------------------------------------------------------
+# ORDER SIMULATION
+# ------------------------------------------------------
+
 ORDER_STAGES = [
     "Order confirmed",
     "Packing",
@@ -110,40 +110,79 @@ ORDER_STAGES = [
 ]
 
 
-def simulate_order(order_id: str) -> Dict[str, Any]:
+def simulate_order(oid: str) -> Dict[str, Any]:
     try:
-        seed = int("".join(filter(str.isdigit, order_id))) % 9999
+        seed = int("".join(filter(str.isdigit, oid))) % 9999
     except:
-        seed = sum(ord(c) for c in order_id)
+        seed = sum(ord(c) for c in oid) % 9999
 
     random.seed(seed)
-    idx = random.randint(0, len(ORDER_STAGES) - 1)
+    i = random.randint(0, len(ORDER_STAGES) - 1)
 
     return {
-        "order_id": order_id,
-        "stage": ORDER_STAGES[idx],
-        "eta_days": max(0, 5 - idx),
-        "history": ORDER_STAGES[:idx + 1]
+        "order_id": oid,
+        "stage": ORDER_STAGES[i],
+        "eta_days": max(0, 5 - i),
+        "history": ORDER_STAGES[:i + 1]
     }
 
 
-# -----------------------------
+# ------------------------------------------------------
 # PRICING
-# -----------------------------
-PRICES = {
-    "basic": "₹499",
-    "pro": "₹1299",
-    "enterprise": "₹4999"
+# ------------------------------------------------------
+
+def simulated_price(plan: str) -> str:
+    plan = plan.lower()
+    prices = {
+        "basic": "₹499",
+        "pro": "₹1299",
+        "enterprise": "₹4999"
+    }
+    return prices.get(plan, "₹499")
+
+
+# ------------------------------------------------------
+# PRODUCT RECOMMENDATION
+# ------------------------------------------------------
+
+PRODUCTS = {
+    "EyeCam Mini": {
+        "price": "₹1499",
+        "rating": "4.6",
+        "use": "Indoor / Small rooms"
+    },
+    "EyeCam 360 Pro": {
+        "price": "₹2899",
+        "rating": "4.8",
+        "use": "Full home security coverage"
+    },
+    "EyeCam Outdoor Max": {
+        "price": "₹3999",
+        "rating": "4.7",
+        "use": "Outdoor / Waterproof"
+    }
 }
 
-def price_lookup(plan: str):
-    plan = plan.lower()
-    return PRICES.get(plan, "₹499")
+
+def recommend_product():
+    best_name = None
+    best_info = None
+    best_rating = 0.0
+
+    for name, info in PRODUCTS.items():
+        r = float(info["rating"])
+        if r > best_rating:
+            best_rating = r
+            best_name = name
+            best_info = info
+
+    return best_name, best_info
 
 
-# -----------------------------
+# ------------------------------------------------------
 # MAIN ENGINE
-# -----------------------------
+# ------------------------------------------------------
+
 class AIEngine:
     def __init__(self):
         self.memory = memory
@@ -151,93 +190,99 @@ class AIEngine:
     def process(self, user_id: str, message: str) -> Dict[str, Any]:
         msg = (message or "").strip()
         mem = self.memory.get(user_id)
-        self.memory.push(user_id, "user", msg)
+        self.memory.push_context(user_id, "user", msg)
 
-        # SAFETY FIRST
-        t = msg.lower()
-        if any(x in t for x in SELF_HARM):
+        if not msg:
             return {
-                "final_answer": "I cannot help with harmful messages.",
+                "final_answer": "Please type your question.",
+                "intent": "unknown",
+                "emotion": "neutral",
+                "confidence": 0.0,
+                "metadata": {}
+            }
+
+        # Safety
+        if any(w in msg.lower() for w in ["kill", "bomb", "suicide", "terror"]):
+            return {
+                "final_answer": "I cannot help with that request.",
                 "intent": "blocked",
                 "emotion": "neutral",
-                "confidence": 1.0,
+                "confidence": 0.0,
                 "metadata": {}
             }
 
-        if any(x in t for x in TERROR):
-            return {
-                "final_answer": "I cannot assist with such content.",
-                "intent": "blocked",
-                "emotion": "neutral",
-                "confidence": 1.0,
-                "metadata": {}
-            }
-
-        if any(x in t for x in ABUSE):
-            return {
-                "final_answer": "Please avoid inappropriate language.",
-                "intent": "blocked",
-                "emotion": "angry",
-                "confidence": 1.0,
-                "metadata": {}
-            }
-
-        # CLASSIFY
-        intent, conf = classify_intent(msg)
+        # Intent & Emotion
+        intent, intent_conf = classify_intent(msg)
         emotion, _ = classify_emotion(msg)
-        mem["last_intent"] = intent
 
-        # ORDER
+        # ------------------ ORDER ------------------
         if intent == "order":
             m = re.search(r"\b(\d{3,12})\b", msg)
             if m:
                 oid = m.group(1)
-                data = simulate_order(oid)
+                order = simulate_order(oid)
                 return {
-                    "final_answer": f"order_status",
+                    "final_answer": "order_details",
                     "intent": "order",
                     "emotion": emotion,
                     "confidence": 1.0,
-                    "metadata": data
+                    "metadata": order
                 }
 
-        # PRICING
+        # ------------------ PRICING ------------------
         if intent == "pricing":
             m = re.search(r"\b(basic|pro|enterprise)\b", msg, flags=re.IGNORECASE)
             plan = m.group(1).lower() if m else "basic"
+            price = simulated_price(plan)
 
             return {
-                "final_answer": "pricing_info",
+                "final_answer": "pricing_details",
                 "intent": "pricing",
                 "emotion": emotion,
-                "confidence": 1.0,
+                "confidence": 0.95,
                 "metadata": {
                     "plan": plan,
-                    "price": price_lookup(plan)
+                    "price": price
                 }
             }
 
-        # LOGIN
-        if intent == "login":
+        # ------------------ PRODUCT RECOMMENDATION ------------------
+        if intent == "product":
+            name, info = recommend_product()
             return {
-                "final_answer": "You can reset your password using the 'Forgot Password' option.",
-                "intent": "login",
+                "final_answer": "product_recommendation",
+                "intent": "product",
+                "emotion": emotion,
+                "confidence": 0.95,
+                "metadata": {
+                    "product_name": name,
+                    "price": info["price"],
+                    "rating": info["rating"],
+                    "use_case": info["use"]
+                }
+            }
+
+        # ------------------ GREETING ------------------
+        if intent == "greeting":
+            return {
+                "final_answer": "Hi! How can I help you today?",
+                "intent": "greeting",
                 "emotion": emotion,
                 "confidence": 1.0,
                 "metadata": {}
             }
 
-        # SUPPORT
+        # ------------------ SUPPORT ------------------
         if intent == "support":
             return {
                 "final_answer": "Please describe the issue.",
                 "intent": "support",
                 "emotion": emotion,
-                "confidence": 0.95,
+                "confidence": 0.85,
                 "metadata": {}
             }
 
-        # ESCALATE
+        # ------------------ ESCALATE ------------------
         if intent == "escalate":
             mem["escalations"] += 1
             return {
@@ -248,17 +293,7 @@ class AIEngine:
                 "metadata": {}
             }
 
-        # GREETING
-        if intent == "greeting":
-            return {
-                "final_answer": "Hi! How can I help you today?",
-                "intent": "greeting",
-                "emotion": emotion,
-                "confidence": 1.0,
-                "metadata": {}
-            }
-
-        # UNKNOWN
+        # ------------------ FALLBACK ------------------
         return {
             "final_answer": "I couldn't understand that. Can you rephrase?",
             "intent": "unknown",
@@ -266,3 +301,11 @@ class AIEngine:
             "confidence": 0.3,
             "metadata": {}
         }
+
+
+# Test locally
+if __name__ == "__main__":
+    eng = AIEngine()
+    while True:
+        txt = input("You: ")
+        print(eng.process("local", txt))
