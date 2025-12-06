@@ -1,6 +1,6 @@
-/* ---------------------------
-   Global Layout & Typography
----------------------------- */
+/* -----------------------------------
+   Global Layout, Colors & Typography
+------------------------------------- */
 
 *,
 *::before,
@@ -9,20 +9,23 @@
 }
 
 :root {
-  --bg: #0f172a;
-  --bg-soft: #020617;
-  --card: #0b1120;
-  --card-soft: #020617;
+  --bg: #020617;
+  --bg-alt: #020617;
+  --card: rgba(15, 23, 42, 0.96);
+  --card-soft: rgba(15, 23, 42, 0.9);
+  --glass: rgba(15, 23, 42, 0.82);
   --primary: #38bdf8;
-  --primary-soft: rgba(56, 189, 248, 0.15);
+  --primary-soft: rgba(56, 189, 248, 0.12);
+  --primary-strong: #0ea5e9;
   --accent: #22c55e;
-  --border-subtle: #1e293b;
+  --accent-soft: rgba(34, 197, 94, 0.16);
+  --border-subtle: rgba(148, 163, 184, 0.28);
   --text-main: #e5e7eb;
   --text-muted: #9ca3af;
-  --danger: #f97373;
-  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.6);
+  --danger: #fb7185;
   --radius-lg: 18px;
   --radius-xl: 24px;
+  --shadow-soft: 0 22px 60px rgba(15, 23, 42, 0.9);
 }
 
 html,
@@ -32,11 +35,12 @@ body {
   height: 100%;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: radial-gradient(circle at top, #1d283a 0, #020617 55%, #000 100%);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.13) 0, transparent 45%),
+    radial-gradient(circle at 100% 0%, rgba(129, 140, 248, 0.16) 0, transparent 45%),
+    radial-gradient(circle at 50% 100%, rgba(34, 197, 94, 0.12) 0, transparent 50%),
+    #020617;
   color: var(--text-main);
-}
-
-body {
   -webkit-font-smoothing: antialiased;
 }
 
@@ -48,21 +52,26 @@ body {
   flex-direction: column;
 }
 
-/* ---------------------------
+/* -----------------------------------
    Navigation
----------------------------- */
+------------------------------------- */
 
 .nav {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 14px 40px;
-  backdrop-filter: blur(14px);
-  background: rgba(15, 23, 42, 0.88);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  backdrop-filter: blur(18px);
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.92),
+    rgba(15, 23, 42, 0.82),
+    transparent
+  );
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .nav-left {
@@ -72,9 +81,9 @@ body {
 }
 
 .brand {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  font-size: 1.1rem;
 }
 
 .brand-sub {
@@ -86,44 +95,46 @@ body {
   display: flex;
   align-items: center;
   gap: 18px;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 
 .nav-right a {
   text-decoration: none;
   color: var(--text-muted);
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.1s ease,
+    box-shadow 0.16s ease;
 }
 
 .nav-right a:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: rgba(15, 23, 42, 0.9);
   color: var(--text-main);
   transform: translateY(-1px);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.8);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Main Layout
----------------------------- */
+------------------------------------- */
 
 .main {
   flex: 1;
-  padding: 32px 40px 50px;
+  padding: 28px 40px 52px;
   max-width: 1120px;
   margin: 0 auto;
 }
 
-/* ---------------------------
+/* -----------------------------------
    Hero Section
----------------------------- */
+------------------------------------- */
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1.05fr);
   gap: 32px;
   align-items: stretch;
-  margin-bottom: 40px;
+  margin-bottom: 38px;
 }
 
 .hero-text {
@@ -138,10 +149,10 @@ body {
   gap: 8px;
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 .pill::before {
@@ -150,17 +161,18 @@ body {
   height: 7px;
   border-radius: 999px;
   background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
 }
 
 .hero h1 {
-  font-size: 1.85rem;
+  font-size: 2rem;
   line-height: 1.3;
   margin: 0;
 }
 
 .hero p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.96rem;
   color: var(--text-muted);
 }
 
@@ -169,19 +181,24 @@ body {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px dashed rgba(148, 163, 184, 0.25);
+  border-radius: 14px;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.96),
+    rgba(15, 23, 42, 0.9)
+  );
+  border: 1px dashed rgba(148, 163, 184, 0.4);
   font-size: 0.9rem;
 }
 
 .dot {
   display: inline-flex;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: var(--primary);
   margin-top: 5px;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.24);
 }
 
 .hero-grid {
@@ -191,20 +208,35 @@ body {
 }
 
 .hero-card {
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.95),
-    rgba(15, 23, 42, 0.98)
+  background: radial-gradient(circle at top left, #111827 0, #020617 65%);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 11px 12px 10px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top right,
+    rgba(56, 189, 248, 0.14),
+    transparent 55%
   );
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  padding: 10px 12px;
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.7);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.hero-card:hover::after {
+  opacity: 1;
 }
 
 .hero-card h3 {
   margin: 0 0 6px;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .hero-card p {
@@ -214,11 +246,11 @@ body {
 }
 
 .hero-side-card {
-  background: radial-gradient(circle at top right, #1f2937 0, #020617 55%);
+  background: radial-gradient(circle at top right, #1f2937 0, #020617 60%);
   border-radius: var(--radius-xl);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.32);
   box-shadow: var(--shadow-soft);
-  padding: 18px 18px 16px;
+  padding: 18px 18px 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -226,7 +258,7 @@ body {
 }
 
 .hero-side-card h3 {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: 1rem;
 }
 
@@ -249,16 +281,20 @@ body {
   word-break: break-all;
 }
 
-/* ---------------------------
+/* -----------------------------------
    Generic Sections
----------------------------- */
+------------------------------------- */
 
 .section {
   margin-top: 40px;
   padding: 26px 24px;
   border-radius: var(--radius-xl);
-  background: rgba(15, 23, 42, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.98),
+    rgba(15, 23, 42, 0.93)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.28);
   box-shadow: var(--shadow-soft);
 }
 
@@ -268,7 +304,7 @@ body {
 
 .section-header h2 {
   margin: 0 0 4px;
-  font-size: 1.18rem;
+  font-size: 1.2rem;
 }
 
 .section-header p {
@@ -277,9 +313,9 @@ body {
   color: var(--text-muted);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Products
----------------------------- */
+------------------------------------- */
 
 .product-grid {
   display: grid;
@@ -289,14 +325,42 @@ body {
 
 .product-card {
   position: relative;
-  border-radius: 16px;
-  background: radial-gradient(circle at top, #111827 0, #020617 70%);
-  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 18px;
+  background: radial-gradient(circle at top, #0f172a 0, #020617 70%);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.7);
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  transform: translateY(0);
+  transition: transform 0.16s ease, box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.product-card::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(
+    circle at top right,
+    rgba(56, 189, 248, 0.18),
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 1);
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.product-card:hover::before {
+  opacity: 1;
 }
 
 .product-tag {
@@ -304,11 +368,12 @@ body {
   top: 8px;
   left: 10px;
   font-size: 0.7rem;
-  padding: 2px 8px;
+  padding: 2px 9px;
   border-radius: 999px;
   background: rgba(56, 189, 248, 0.15);
   color: #7dd3fc;
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  backdrop-filter: blur(12px);
 }
 
 .product-body {
@@ -317,7 +382,7 @@ body {
 
 .product-body h3 {
   margin: 0 0 4px;
-  font-size: 0.95rem;
+  font-size: 0.96rem;
 }
 
 .price {
@@ -341,13 +406,13 @@ body {
 
 .product-hint {
   margin: 0 0 10px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Buttons
----------------------------- */
+------------------------------------- */
 
 .primary-btn,
 .secondary-btn {
@@ -361,20 +426,20 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: background 0.15s ease, color 0.15s ease,
-    transform 0.12s ease, box-shadow 0.12s ease;
+  transition: background 0.16s ease, color 0.16s ease,
+    transform 0.12s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
 
 .primary-btn {
   background: linear-gradient(135deg, #38bdf8, #0ea5e9);
   color: #0b1120;
   font-weight: 600;
-  box-shadow: 0 12px 30px rgba(8, 47, 73, 0.6);
+  box-shadow: 0 16px 40px rgba(8, 47, 73, 0.9);
 }
 
 .primary-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 40px rgba(8, 47, 73, 0.85);
+  box-shadow: 0 20px 55px rgba(8, 47, 73, 1);
 }
 
 .primary-btn:disabled,
@@ -386,25 +451,25 @@ body {
 }
 
 .secondary-btn {
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.98);
   color: var(--text-main);
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.5);
 }
 
 .secondary-btn:hover {
-  background: rgba(30, 64, 175, 0.6);
-  border-color: rgba(129, 140, 248, 0.8);
+  background: rgba(30, 64, 175, 0.9);
+  border-color: rgba(129, 140, 248, 0.9);
 }
 
-/* ---------------------------
-   Cart
----------------------------- */
+/* -----------------------------------
+   Shared Cart
+------------------------------------- */
 
 .cart-box {
   margin-top: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: radial-gradient(circle at top left, #111827 0, #020617 55%);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: radial-gradient(circle at top left, #0b1120 0, #020617 55%);
   padding: 10px 10px 12px;
   overflow-x: auto;
 }
@@ -422,22 +487,22 @@ body {
 }
 
 .cart-table thead th {
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.5);
   font-weight: 500;
   color: var(--text-muted);
 }
 
 .cart-table tbody tr:nth-child(even) {
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 .cart-table tfoot td {
-  border-top: 1px solid rgba(148, 163, 184, 0.35);
+  border-top: 1px solid rgba(148, 163, 184, 0.5);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Usage & Feedback Cards
----------------------------- */
+------------------------------------- */
 
 .usage-grid,
 .feedback-grid {
@@ -448,11 +513,33 @@ body {
 
 .usage-card,
 .feedback-card {
-  background: rgba(15, 23, 42, 0.96);
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.98);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
   padding: 12px 12px 10px;
   font-size: 0.85rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.usage-card::before,
+.feedback-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top right,
+    rgba(56, 189, 248, 0.18),
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.usage-card:hover::before,
+.feedback-card:hover::before {
+  opacity: 1;
 }
 
 .usage-card h3,
@@ -473,9 +560,9 @@ body {
   color: var(--text-muted);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Text Utilities
----------------------------- */
+------------------------------------- */
 
 .error-text {
   margin-top: 8px;
@@ -487,29 +574,29 @@ code {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
     Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.78rem;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.6);
   color: #bfdbfe;
 }
 
-/* ---------------------------
+/* -----------------------------------
    Footer
----------------------------- */
+------------------------------------- */
 
 .footer {
   padding: 14px 24px 18px;
   text-align: center;
   font-size: 0.8rem;
   color: var(--text-muted);
-  border-top: 1px solid rgba(30, 64, 175, 0.6);
+  border-top: 1px solid rgba(30, 64, 175, 0.7);
   background: radial-gradient(circle at top, #020617 0, #000 100%);
 }
 
-/* ---------------------------
+/* -----------------------------------
    Responsive
----------------------------- */
+------------------------------------- */
 
 @media (max-width: 960px) {
   .main {
@@ -538,7 +625,7 @@ code {
   }
 
   .nav-right {
-    display: none; /* keeps header clean on mobile */
+    display: none; /* cleaner on small screens */
   }
 }
 
