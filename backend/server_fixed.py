@@ -268,7 +268,7 @@ async def order_lookup(oid: str):
 
 # -------------------------------------------------------
 # PRODUCT LIST — STATIC (shared with AI engine & bot)
-// -------------------------------------------------------
+# -------------------------------------------------------
 @app.get("/products")
 async def get_products():
     """
