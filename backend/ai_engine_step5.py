@@ -519,45 +519,46 @@ class AIEngine:
 
         # REMOVE FROM CART
         if intent == "remove_from_cart":
+            msg_lower = msg.lower()
+        
+            # 1) Try to extract numeric product IDs
             ids = re.findall(r"\b(\d{3,12})\b", msg)
-            cart = mem["cart"]
-
+        
+            # 2) If user typed a name (e.g., "remove Wireless Earbuds")
             if not ids:
-                return {
-                    "final_answer": "Tell me which product to remove, e.g. *remove 101 from cart*.",
-                    "intent": "remove_from_cart",
-                    "emotion": emotion,
-                    "confidence": 0.9,
-                    "metadata": build({"cart_items": list(cart)}),
-                }
-
-            removed_items = []
+                for pid_str, info in PRODUCT_DB.items():
+                    name_lower = info["name"].lower()
+                    if name_lower in msg_lower:
+                        ids.append(pid_str)
+        
+            cart = mem["cart"]
+            removed = []
+        
             for pid in ids:
-                # remove all occurrences of that pid from cart
-                while pid in cart:
-                    cart.remove(pid)
-                    removed_items.append(pid)
-
-            if not removed_items:
-                ans = "That item is not in your cart."
+                # Remove ALL occurrences of the product ID
+                before = len(cart)
+                cart[:] = [x for x in cart if x != pid]
+                if len(cart) < before:
+                    removed.append(pid)
+        
+            if not removed:
+                ans = "Tell me which product to remove, e.g. *remove 101 from cart*."
             else:
                 lines = []
-                for pid in removed_items:
+                for pid in removed:
                     info = PRODUCT_DB.get(pid)
                     if info:
                         lines.append(f"{pid} — {info['name']} ({info['price']})")
                     else:
                         lines.append(pid)
                 ans = "🗑️ Removed from your cart:\n" + "\n".join(f"- {l}" for l in lines)
-
+        
             return {
                 "final_answer": ans,
                 "intent": "remove_from_cart",
                 "emotion": emotion,
                 "confidence": 0.95,
-                "metadata": build(
-                    {"cart_items": list(cart), "cart_size": len(cart)}
-                ),
+                "metadata": build({"cart_items": list(mem["cart"])}),
             }
 
         # PLACE ORDER / CHECKOUT
@@ -895,4 +896,5 @@ class AIEngine:
             "confidence": 0.3,
             "metadata": build({}),
         }
+
 
