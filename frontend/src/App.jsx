@@ -1,46 +1,27 @@
 import React, { useEffect, useState } from "react";
 import "./index.css";
 
-// Backend shared by website + chatbot
+// Backend shared by website + Zoho SalesIQ bot
 const BACKEND_URL =
   import.meta.env?.VITE_API_BASE_URL ||
   "https://salesiq-ai-assistant-8m8r.onrender.com";
 
 function App() {
-  // ----------------------------
   // HEALTH
-  // ----------------------------
   const [health, setHealth] = useState({ status: "checking..." });
 
-  // ----------------------------
-  // PRODUCTS (from /products)
-  // ----------------------------
+  // PRODUCTS
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState("");
 
-  // ----------------------------
-  // ORDER TRACKER (from /order)
-  // ----------------------------
+  // ORDER TRACKER
   const [orderId, setOrderId] = useState("");
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [orderData, setOrderData] = useState(null);
 
-  // ----------------------------
-  // CHAT / AGENT ASSIST DEMO (from /chat)
-  // ----------------------------
-  const [chatInput, setChatInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
-  const [botResponse, setBotResponse] = useState("");
-  const [intent, setIntent] = useState("");
-  const [emotion, setEmotion] = useState("");
-  const [confidence, setConfidence] = useState(null);
-  const [agentAssist, setAgentAssist] = useState(null);
-  const [metadata, setMetadata] = useState(null);
-  const [chatError, setChatError] = useState("");
-
-  // Fetch backend health + products on load
+  // On load: health + products
   useEffect(() => {
     const fetchHealth = async () => {
       try {
@@ -74,7 +55,7 @@ function App() {
     fetchProducts();
   }, []);
 
-  // Handle order tracking
+  // Order tracker handler
   const handleTrackOrder = async (e) => {
     e.preventDefault();
     const clean = (orderId || "").replace(/[^0-9]/g, "");
@@ -104,52 +85,6 @@ function App() {
     }
   };
 
-  // Handle chat → /chat
-  const handleSendChat = async (e) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    setIsSending(true);
-    setChatError("");
-    setBotResponse("");
-    setAgentAssist(null);
-    setMetadata(null);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: "demo-web-user",
-          message: chatInput.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || err.error || "Backend error");
-      }
-
-      const data = await res.json();
-      setBotResponse(data.response || "");
-      setIntent(data.intent || "");
-      setEmotion(data.emotion || "");
-      setConfidence(
-        typeof data.confidence === "number" ? data.confidence : null
-      );
-      setAgentAssist(data.agent_assist || null);
-      setMetadata(data.metadata || null);
-    } catch (err) {
-      setChatError(err.message || "Something went wrong");
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleQuickMessage = (msg) => {
-    setChatInput(msg);
-  };
-
   return (
     <div className="app-root">
       {/* NAVBAR */}
@@ -164,13 +99,13 @@ function App() {
           <a href="#top">Dashboard</a>
           <a href="#products">Products</a>
           <a href="#order-tracker">Order Tracker</a>
-          <a href="#agent-assist">Bot Tester</a>
+          <a href="#howto">How to Test</a>
           <a href="#evaluators">For Evaluators</a>
         </div>
       </header>
 
       <main className="main">
-        {/* HERO + HEALTH */}
+        {/* HERO */}
         <section id="top" className="hero">
           <div className="hero-text">
             <div className="pill">CliqTrix&apos;26 – Smart AI Assistant</div>
@@ -179,15 +114,16 @@ function App() {
 
             <p>
               This single-page demo connects a custom AI backend, an
-              e-commerce-style catalog, and a Zoho SalesIQ chatbot. The same
-              IDs and endpoints are used by both this page and the chatbot.
+              e-commerce-style catalog and a Zoho SalesIQ chatbot. The same
+              product IDs and order IDs are used by both this page and the
+              chatbot.
             </p>
 
             <p className="hero-note">
-              <span className="dot" /> The chatbot at the bottom-right can{" "}
-              <b>track orders</b>, <b>manage cart & orders</b>,{" "}
-              <b>show products</b>, and <b>analyze sentiment</b> using the same
-              backend as this website.
+              <span className="dot" /> All conversations happen in the{" "}
+              <b>Zoho SalesIQ chat bubble</b> at the bottom-right. The bot uses
+              the same backend as this page for order tracking, product browsing
+              and sentiment analysis.
             </p>
 
             <div className="hero-grid">
@@ -198,21 +134,23 @@ function App() {
               <div className="hero-card">
                 <h3>2. Track Orders</h3>
                 <p>
-                  Use the website order tracker or type <code>track 101</code> in
-                  chat.
+                  Use the <b>Order Tracker</b> on this page or type{" "}
+                  <code>track 101</code> in the chatbot.
                 </p>
               </div>
               <div className="hero-card">
-                <h3>3. E-Commerce Bot</h3>
+                <h3>3. Chat with the Bot</h3>
                 <p>
-                  In chat, try <code>add 101 to cart</code>,{" "}
+                  Open the SalesIQ bubble and try messages like{" "}
+                  <code>show products</code>, <code>add 101 to cart</code>,{" "}
                   <code>show my cart</code>, <code>checkout</code>,{" "}
-                  <code>my orders</code>, etc.
+                  <code>my orders</code>.
                 </p>
               </div>
             </div>
           </div>
 
+          {/* Backend status */}
           <div className="hero-side-card">
             <h3>Backend Status</h3>
             <p className={`health-status health-${health.status || "unknown"}`}>
@@ -235,7 +173,8 @@ function App() {
             <h2>Featured Products (Dynamic Catalog)</h2>
             <p>
               These products are loaded from <code>/products</code>. The chatbot
-              uses the same API when you type <code>show products</code>.
+              uses the same API when you type <code>show products</code> in the
+              Zoho SalesIQ widget.
             </p>
           </div>
 
@@ -258,8 +197,10 @@ function App() {
                     <p className="order-id">{p.id}</p>
 
                     <p className="product-hint">
-                      In the bot, try: <code>details {p.id}</code>,{" "}
-                      <code>add {p.id} to cart</code>, or <code>track {p.id}</code>.
+                      In the chatbot, you can try:{" "}
+                      <code>details {p.id}</code>,{" "}
+                      <code>add {p.id} to cart</code>,{" "}
+                      <code>track {p.id}</code>.
                     </p>
                   </div>
                 </div>
@@ -271,10 +212,11 @@ function App() {
         {/* ORDER TRACKER */}
         <section id="order-tracker" className="section section-dark">
           <div className="section-header">
-            <h2>Live Order Tracker (Same Backend as the Bot)</h2>
+            <h2>Live Order Tracker (Shared with Bot)</h2>
             <p>
-              This form calls the <code>/order?oid=&lt;id&gt;</code> endpoint.
-              The chatbot uses the same API when you type <code>track 101</code>.
+              This form calls the <code>/order?oid=&lt;id&gt;</code> endpoint in
+              the backend. The Zoho SalesIQ bot calls the same API when a user
+              types <code>track 101</code>.
             </p>
           </div>
 
@@ -328,201 +270,65 @@ function App() {
           </div>
         </section>
 
-        {/* BOT & AGENT ASSIST DEMO */}
-        <section id="agent-assist" className="section">
+        {/* HOW TO TEST (FOCUS ON ZOHO BOT) */}
+        <section id="howto" className="section">
           <div className="section-header">
-            <h2>Live Bot & Agent Assist Demo</h2>
+            <h2>How to Test the Smart AI Assistant (Zoho SalesIQ)</h2>
             <p>
-              This panel sends your message to the same AI engine used by Zoho
-              SalesIQ and visualises the Agent Assist PRO metadata.
+              All bot interactions happen in the Zoho SalesIQ widget at the
+              bottom-right of this page.
             </p>
           </div>
 
-          <div className="agent-grid">
-            {/* Left: Chat */}
-            <div className="agent-panel">
-              <h3>Test a Message</h3>
-
-              <form className="chat-form" onSubmit={handleSendChat}>
-                <label className="chat-label">
-                  Message to Smart AI Assistant
-                  <textarea
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder='Try: "add 101 to cart", "show my cart", "checkout", "my orders", "cancel order 123456", "reorder 123456", "details 101", "search earbuds"'
-                    rows={3}
-                  />
-                </label>
-
-                <div className="chat-actions">
-                  <div className="quick-buttons">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("show products")}
-                    >
-                      show products
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("add 101 to cart")}
-                    >
-                      add 101 to cart
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("show my cart")}
-                    >
-                      show my cart
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("checkout")}
-                    >
-                      checkout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("my orders")}
-                    >
-                      my orders
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleQuickMessage("cancel order 123456")
-                      }
-                    >
-                      cancel order
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleQuickMessage("reorder 123456")
-                      }
-                    >
-                      reorder
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMessage("details 101")}
-                    >
-                      details 101
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleQuickMessage("search earbuds")
-                      }
-                    >
-                      search earbuds
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleQuickMessage("this is bad, I am angry")
-                      }
-                    >
-                      angry (sentiment)
-                    </button>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="primary-btn"
-                    disabled={isSending}
-                  >
-                    {isSending ? "Sending..." : "Send to Backend"}
-                  </button>
-                </div>
-              </form>
-
-              {chatError && <div className="error-box">⚠ {chatError}</div>}
-
-              {botResponse && (
-                <div className="bot-response">
-                  <h4>Bot Response</h4>
-                  <p>{botResponse}</p>
-
-                  <div className="inline-meta">
-                    {intent && (
-                      <span>
-                        Intent: <b>{intent}</b>
-                      </span>
-                    )}
-                    {emotion && (
-                      <span>
-                        Emotion: <b>{emotion}</b>
-                      </span>
-                    )}
-                    {confidence !== null && (
-                      <span>
-                        Confidence:{" "}
-                        <b>{(confidence * 100).toFixed(0)}%</b>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+          <div className="usage-grid">
+            <div className="usage-card">
+              <h3>🧾 Order Tracking</h3>
+              <ul>
+                <li>Open the Zoho SalesIQ chat bubble.</li>
+                <li>
+                  Type <code>track 101</code>, <code>track 102</code>, etc.
+                </li>
+                <li>
+                  The bot calls the same <code>/order</code> API used by this
+                  page and shows stage, ETA and history.
+                </li>
+              </ul>
             </div>
 
-            {/* Right: Agent Assist */}
-            <div className="agent-panel">
-              <h3>Operator View – Agent Assist PRO</h3>
+            <div className="usage-card">
+              <h3>🛍️ E-Commerce Flow in Chat</h3>
+              <ul>
+                <li>
+                  Browse products: <code>show products</code>,{" "}
+                  <code>search earbuds</code>, <code>details 101</code>.
+                </li>
+                <li>
+                  Manage cart: <code>add 101 to cart</code>,{" "}
+                  <code>show my cart</code>.
+                </li>
+                <li>
+                  Place & manage orders: <code>checkout</code>,{" "}
+                  <code>my orders</code>, <code>cancel order 500123</code>,{" "}
+                  <code>reorder 500123</code>.
+                </li>
+              </ul>
+            </div>
 
-              {!agentAssist && !metadata && (
-                <p className="muted">
-                  Send a test message to see frustration score, risk level,
-                  summary and suggested reply that an operator would see inside
-                  SalesIQ.
-                </p>
-              )}
-
-              {agentAssist && (
-                <div className="agent-assist-card">
-                  <div className="aa-row">
-                    <span className="aa-label">Frustration Score</span>
-                    <span className="aa-value">
-                      {agentAssist.frustration ?? 0}
-                    </span>
-                  </div>
-                  <div className="aa-row">
-                    <span className="aa-label">Risk Level</span>
-                    <span className="aa-value">
-                      {agentAssist.risk || "low"}
-                    </span>
-                  </div>
-                  <div className="aa-row">
-                    <span className="aa-label">Suggestion</span>
-                    <span className="aa-value">
-                      {agentAssist.suggestion || "-"}
-                    </span>
-                  </div>
-                  <div className="aa-row">
-                    <span className="aa-label">Summary</span>
-                    <span className="aa-value aa-summary">
-                      {agentAssist.summary || "-"}
-                    </span>
-                  </div>
-
-                  {agentAssist.recent_messages?.length > 0 && (
-                    <div className="aa-recent">
-                      <span className="aa-label">Recent Messages</span>
-                      <ul>
-                        {agentAssist.recent_messages.map((m, i) => (
-                          <li key={i}>{m}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {metadata && (
-                <div className="meta-raw">
-                  <h4>Raw Metadata (for evaluators)</h4>
-                  <pre>{JSON.stringify(metadata, null, 2)}</pre>
-                </div>
-              )}
+            <div className="usage-card">
+              <h3>😊 Sentiment & Agent Assist</h3>
+              <ul>
+                <li>
+                  Send: <code>thanks, this is great</code> (happy).
+                </li>
+                <li>
+                  Then: <code>this is bad, I am angry</code> (frustrated).
+                </li>
+                <li>
+                  The backend updates emotion, frustration score and risk level,
+                  shown to operators through Agent Assist in the SalesIQ
+                  dashboard.
+                </li>
+              </ul>
             </div>
           </div>
         </section>
@@ -532,8 +338,8 @@ function App() {
           <div className="section-header">
             <h2>CliqTrix&apos;26 – Feedback Mapping</h2>
             <p>
-              This implementation directly addresses the feedback shared by the
-              CliqTrix team.
+              This implementation directly addresses the three feedback points
+              shared by the CliqTrix team.
             </p>
           </div>
 
@@ -541,62 +347,60 @@ function App() {
             <div className="feedback-card">
               <h3>1️⃣ Bot + E-Commerce Integration</h3>
               <p>
-                Both the website and the Zoho SalesIQ bot are connected to a
-                shared e-commerce backend via REST APIs.
+                The Zoho SalesIQ chatbot and this website both connect to the
+                same custom backend.
               </p>
               <ul>
                 <li>
-                  <code>/products</code> and <code>/order</code> power both this
-                  page and the chatbot.
+                  <code>/order</code> and <code>/products</code> are used by
+                  both the chat bot (via Deluge) and this page.
                 </li>
                 <li>
-                  Bot flows like <b>track 101</b> use the same backend endpoints.
+                  Order IDs and product IDs are consistent across website and
+                  chat.
                 </li>
                 <li>
-                  Orders created via the AI engine can be tracked with order IDs.
+                  Demonstrates real API-based integration, not static replies.
                 </li>
               </ul>
             </div>
 
             <div className="feedback-card">
-              <h3>2️⃣ Product Browsing & Order Flows Inside the Bot</h3>
+              <h3>2️⃣ Product Browsing Inside the Bot</h3>
               <p>
-                The AI engine supports a mini e-commerce flow:
-                product search, details, cart, checkout and orders, all via chat.
+                Users can explore the same catalog shown above directly via
+                chat.
               </p>
               <ul>
                 <li>
-                  Browsing: <code>show products</code>, <code>search earbuds</code>,
-                  <code>details 101</code>.
+                  Product listing via <code>show products</code>.
                 </li>
                 <li>
-                  Cart & checkout: <code>add 101 to cart</code>,{" "}
-                  <code>show my cart</code>, <code>checkout</code>.
+                  Product details via <code>details 101</code>.
                 </li>
                 <li>
-                  Orders: <code>my orders</code>,{" "}
-                  <code>cancel order 123456</code>, <code>reorder 123456</code>.
+                  Full e-commerce flow in chat: cart, checkout, orders.
                 </li>
               </ul>
             </div>
 
             <div className="feedback-card">
-              <h3>3️⃣ Improved Sentiment Analysis & Agent Assist</h3>
+              <h3>3️⃣ Improved Sentiment Analysis</h3>
               <p>
-                The AI engine uses lexicon + negation-based sentiment and
-                multi-message frustration scoring to drive Agent Assist.
+                The AI engine powering the Zoho SalesIQ bot includes refined
+                sentiment rules and frustration scoring for Agent Assist.
               </p>
               <ul>
                 <li>
-                  Classifies user emotion as <b>happy</b>, <b>neutral</b> or{" "}
-                  <b>angry</b>.
+                  Classifies messages as <b>happy</b>, <b>neutral</b> or{" "}
+                  <b>angry</b> using lexicon + negation.
                 </li>
                 <li>
-                  Tracks frustration across the recent message history.
+                  Tracks frustration across multiple messages per visitor.
                 </li>
                 <li>
-                  Exposes summary, frustration and risk via{" "}
-                  <code>agent_assist</code> object used by operators in SalesIQ.
+                  Exposes summary, frustration and risk to agents via metadata
+                  and the <code>agent_assist</code> object.
                 </li>
               </ul>
             </div>
