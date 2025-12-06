@@ -1,16 +1,16 @@
-# server_fixed.py — FINAL VERSION (Agent Assist PRO + E-Commerce Integration)
+# server_fixed.py — FINAL VERSION
 """
 FastAPI backend for Smart AI Assistant.
 
 Features:
 - /chat      -> main AI engine endpoint (uses AIEngine from ai_engine_step5.py)
-- /order     -> order tracking integrated with external e-commerce style API (fakestoreapi carts) + fallback simulation
-- /products  -> product catalog endpoint using DummyJSON API (stable)
+- /order     -> order tracking integrated with external API + fallback simulation
+- /products  -> static product catalog (shared with bot, aligned with AI engine)
+- /cart      -> shared cart APIs (frontend + chatbot)
 - /health    -> basic status
 """
 
 import os
-import json
 import random
 from datetime import datetime
 from typing import Dict, Any
@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ai_engine_step5 import AIEngine, memory, PRODUCT_DB
+from ai_engine_step5 import AIEngine, PRODUCT_DB, memory
 
 # -------------------------------------------------------
 # App Setup
@@ -46,6 +46,117 @@ async def health():
         "status": "ok",
         "time": datetime.utcnow().isoformat(),
         "service": "smart-ai-assistant",
+    }
+
+
+# -------------------------------------------------------
+# Helper: build static product list from PRODUCT_DB
+# -------------------------------------------------------
+def build_product_list():
+    """
+    Build a static product list from the AI engine's PRODUCT_DB.
+    Ensures IDs and prices are consistent across bot + frontend.
+    """
+    products = []
+    for pid_str, info in PRODUCT_DB.items():
+        name = info.get("name", f"Product {pid_str}")
+        price_str = info.get("price", "0")
+        tag = info.get("tag", "")
+
+        # Convert "₹1,299" -> 1299
+        digits = "".join(ch for ch in price_str if ch.isdigit())
+        price = int(digits) if digits else 0
+
+        products.append(
+            {
+                "id": int(pid_str),
+                "title": name,
+                "price": price,
+                "tag": tag,
+            }
+        )
+    # Sort by id for nice display
+    products.sort(key=lambda p: p["id"])
+    return products
+
+
+# -------------------------------------------------------
+# Helper: order simulation (fallback)
+# -------------------------------------------------------
+ORDER_STAGES = [
+    "Order confirmed",
+    "Packing",
+    "Ready to ship",
+    "Shipped",
+    "In transit",
+    "Out for delivery",
+    "Delivered",
+]
+
+
+def simulate_order(oid: str) -> Dict[str, Any]:
+    """
+    Deterministic fallback simulation used when external API fails.
+    Keeps behavior stable for the demo.
+    """
+    try:
+        seed = int("".join([c for c in oid if c.isdigit()])) % 9999
+    except Exception:
+        seed = sum(ord(c) for c in oid) % 9999
+
+    random.seed(seed)
+    idx = random.randint(0, len(ORDER_STAGES) - 1)
+
+    return {
+        "order_id": str(oid),
+        "stage": ORDER_STAGES[idx],
+        "eta_days": max(0, 5 - idx),
+        "history": ORDER_STAGES[: idx + 1],
+        "source": "simulation",
+    }
+
+
+# -------------------------------------------------------
+# Helper: shared CART snapshot (AIEngine memory -> API)
+# -------------------------------------------------------
+def build_cart_snapshot(user_id: str):
+    """
+    Build a unified cart view for the given user_id based on the
+    in-memory cart used by AIEngine (same cart as chatbot).
+    """
+    mem = memory.data[user_id]
+    id_list = mem["cart"]  # list of product_id strings like "101"
+
+    # Count quantities
+    counts: Dict[str, int] = {}
+    for pid in id_list:
+        counts[pid] = counts.get(pid, 0) + 1
+
+    items = []
+    for pid_str, qty in counts.items():
+        info = PRODUCT_DB.get(pid_str, {})
+        name = info.get("name", f"Product {pid_str}")
+        price_str = info.get("price", "0")
+
+        # Convert "₹1,299" -> 1299
+        digits = "".join(ch for ch in price_str if ch.isdigit())
+        price = int(digits) if digits else 0
+
+        items.append(
+            {
+                "id": int(pid_str),
+                "title": name,
+                "price": price,
+                "qty": qty,
+            }
+        )
+
+    # Sort by id for readability
+    items.sort(key=lambda i: i["id"])
+
+    return {
+        "user_id": user_id,
+        "items": items,
     }
 
 
@@ -106,79 +217,6 @@ async def chat_post(request: Request):
 # -------------------------------------------------------
 # ORDER LOOKUP — external API + fallback simulation
 # -------------------------------------------------------
-
-ORDER_STAGES = [
-    "Order confirmed",
-    "Packing",
-    "Ready to ship",
-    "Shipped",
-    "In transit",
-    "Out for delivery",
-    "Delivered",
-]
-
-
-def simulate_order(oid: str) -> Dict[str, Any]:
-    """
-    Deterministic fallback simulation used when external API fails.
-    Keeps behavior stable for the demo.
-    """
-    try:
-        seed = int("".join([c for c in oid if c.isdigit()])) % 9999
-    except Exception:
-        seed = sum(ord(c) for c in oid) % 9999
-
-    random.seed(seed)
-    idx = random.randint(0, len(ORDER_STAGES) - 1)
-
-    return {
-        "order_id": str(oid),
-        "stage": ORDER_STAGES[idx],
-        "eta_days": max(0, 5 - idx),
-        "history": ORDER_STAGES[: idx + 1],
-        "source": "simulation",
-    }
-
-# -------------------------------------------------------
-# Shared CART helper (used by bot + frontend)
-# -------------------------------------------------------
-def build_cart_snapshot(user_id: str):
-    """
-    Build a unified cart view for the given user_id based on the
-    in-memory cart used by AIEngine.
-    """
-    mem = memory.data[user_id]
-    id_list = mem["cart"]  # list of product_id strings like "101"
-
-    # Count quantities
-    counts: Dict[str, int] = {}
-    for pid in id_list:
-        counts[pid] = counts.get(pid, 0) + 1
-
-    items = []
-    for pid_str, qty in counts.items():
-        info = PRODUCT_DB.get(pid_str, {})
-        name = info.get("name", f"Product {pid_str}")
-        price_str = info.get("price", "0")
-
-        # Convert "₹1,299" -> 1299
-        digits = "".join(ch for ch in price_str if ch.isdigit())
-        price = int(digits) if digits else 0
-
-        items.append(
-            {
-                "id": int(pid_str),
-                "title": name,
-                "price": price,
-                "qty": qty,
-            }
-        )
-
-    return {
-        "user_id": user_id,
-        "items": items,
-    }
-
 @app.get("/order")
 async def order_lookup(oid: str):
     """
@@ -187,7 +225,7 @@ async def order_lookup(oid: str):
 
     Used by:
     - Zoho SalesIQ bot (for messages like "track 101")
-    - Documented in the frontend page.
+    - Frontend page.
     """
     if not oid:
         return {"error": "Missing order ID"}
@@ -229,32 +267,24 @@ async def order_lookup(oid: str):
 
 
 # -------------------------------------------------------
-# PRODUCT LIST — using DummyJSON (very stable API)
-# -------------------------------------------------------
+# PRODUCT LIST — STATIC (shared with AI engine & bot)
+// -------------------------------------------------------
 @app.get("/products")
 async def get_products():
     """
-    Fetch products from DummyJSON API to act as an e-commerce catalog.
+    Static product catalog, derived from PRODUCT_DB.
+
     Used by:
     - Zoho SalesIQ bot (commands like "show products")
-    - Frontend page (optional, if you want to consume it there as well).
+    - (Optional) frontend if you ever want to fetch instead of static array.
     """
-    try:
-        resp = requests.get("https://dummyjson.com/products?limit=10", timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+    products = build_product_list()
+    return {
+        "products": products,
+        "source": "static",
+    }
 
-        return {
-            "products": data.get("products", []),
-            "source": "dummyjson",
-        }
-    except Exception as e:
-        # In case of error, return an empty list but keep shape same
-        return {
-            "products": [],
-            "source": "error",
-            "detail": str(e),
-        }
+
 # -------------------------------------------------------
 # CART API — shared between chatbot and frontend
 # -------------------------------------------------------
@@ -306,7 +336,6 @@ async def cart_remove(payload: Dict[str, Any]):
     return build_cart_snapshot(user_id)
 
 
-
 # -------------------------------------------------------
 # ROOT
 # -------------------------------------------------------
@@ -314,7 +343,7 @@ async def cart_remove(payload: Dict[str, Any]):
 def root():
     return {
         "status": "SalesIQ AI Engine Ready",
-        "endpoints": ["/chat", "/order", "/products", "/health"],
+        "endpoints": ["/chat", "/order", "/products", "/cart", "/health"],
     }
 
 
