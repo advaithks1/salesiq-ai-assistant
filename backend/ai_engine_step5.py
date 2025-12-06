@@ -1,10 +1,10 @@
-# ai_engine_step5.py — FINAL PRO+ HACKATHON VERSION (with E-Commerce Intents)
+# ai_engine_step5.py — FINAL PRO+ HACKATHON VERSION (with E-Commerce Intents + Remove From Cart)
 """
 Smart AI Engine for SalesIQ Hackathon
 Features:
 - Intent detection (order, pricing, support, greeting, login, escalate)
-- E-commerce flows: add to cart, view cart, place order, my orders, cancel, reorder,
-  product details & basic product search intent
+- E-commerce flows: add to cart, view cart, remove from cart, place order, my orders,
+  cancel, reorder, product details & basic product search intent
 - FULL sentiment engine (lexicon + negation)
 - FAQ system (shipping, refund, payment, account)
 - Order tracking simulation
@@ -72,6 +72,13 @@ def classify_intent(text: str):
     # View cart
     if msg in {"cart", "my cart"} or "show my cart" in msg or "show cart" in msg:
         return "view_cart", 0.95
+
+    # Remove from cart
+    if (
+        (("remove" in msg) or ("delete" in msg)) and "cart" in msg
+    ) or msg.startswith("remove "):
+        # examples: "remove 101 from cart", "delete 101 from cart", "remove 101"
+        return "remove_from_cart", 0.96
 
     # Place order / checkout
     if (
@@ -341,6 +348,8 @@ def suggest(intent, emotion):
         return "Confirm the product and suggest viewing cart or checkout."
     if intent == "view_cart":
         return "Walk the user through checkout or product changes."
+    if intent == "remove_from_cart":
+        return "Confirm the removed item and show the updated cart."
     if intent == "place_order":
         return "Confirm address/payment and reassure about delivery timeline."
     if intent == "my_orders":
@@ -495,6 +504,49 @@ class AIEngine:
                 "emotion": emotion,
                 "confidence": 0.95,
                 "metadata": build(meta_extra),
+            }
+
+        # REMOVE FROM CART
+        if intent == "remove_from_cart":
+            ids = re.findall(r"\b(\d{3,12})\b", msg)
+            cart = mem["cart"]
+
+            if not ids:
+                return {
+                    "final_answer": "Tell me which product to remove, e.g. *remove 101 from cart*.",
+                    "intent": "remove_from_cart",
+                    "emotion": emotion,
+                    "confidence": 0.9,
+                    "metadata": build({"cart_items": list(cart)}),
+                }
+
+            removed_items = []
+            for pid in ids:
+                # remove all occurrences of that pid from cart
+                while pid in cart:
+                    cart.remove(pid)
+                    removed_items.append(pid)
+
+            if not removed_items:
+                ans = "That item is not in your cart."
+            else:
+                lines = []
+                for pid in removed_items:
+                    info = PRODUCT_DB.get(pid)
+                    if info:
+                        lines.append(f"{pid} — {info['name']} ({info['price']})")
+                    else:
+                        lines.append(pid)
+                ans = "🗑️ Removed from your cart:\n" + "\n".join(f"- {l}" for l in lines)
+
+            return {
+                "final_answer": ans,
+                "intent": "remove_from_cart",
+                "emotion": emotion,
+                "confidence": 0.95,
+                "metadata": build(
+                    {"cart_items": list(cart), "cart_size": len(cart)}
+                ),
             }
 
         # PLACE ORDER / CHECKOUT
@@ -756,6 +808,7 @@ class AIEngine:
                 "• `details 101` – see product details\n"
                 "• `add 101 to cart` – add item to cart\n"
                 "• `show my cart` / `checkout` – place an order\n"
+                "• `remove 101 from cart` – remove an item\n"
                 "• `track 101` – track an order\n"
                 "• `refund status` / `payment issue` – support & FAQs\n"
             )
@@ -784,7 +837,7 @@ class AIEngine:
                 "You can:\n"
                 "• Ask about *orders*: `track 101`, `my orders`, `cancel order 500123`\n"
                 "• Ask about *products*: `show products`, `search earbuds`, `details 101`\n"
-                "• Manage *cart*: `add 101 to cart`, `show my cart`, `checkout`\n"
+                "• Manage *cart*: `add 101 to cart`, `remove 101 from cart`, `show my cart`, `checkout`\n"
                 "• Ask *support & policy*: `shipping info`, `refund status`, `payment issue`\n\n"
                 "Or just describe your issue in your own words 🙂"
             )
@@ -819,7 +872,7 @@ class AIEngine:
                 "I didn’t fully catch that, but here’s what I can do:\n"
                 "• `track 101` – order tracking\n"
                 "• `show products` / `search earbuds`\n"
-                "• `add 101 to cart`, `show my cart`, `checkout`\n"
+                "• `add 101 to cart`, `remove 101 from cart`, `show my cart`, `checkout`\n"
                 "• `my orders`, `cancel order 500123`, `reorder 500123`\n"
                 "• Shipping, refund and payment support\n"
             )
