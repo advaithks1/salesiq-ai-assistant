@@ -45,7 +45,7 @@ INTENT_RULES = {
     "support": ["help", "issue", "problem", "error", "bug", "crash"],
     "escalate": ["agent", "human", "supervisor"],
     "login": ["password", "reset password", "forgot password"],
-    # note: e-commerce intents are handled with custom logic below
+    # e-commerce intents handled with custom logic below
 }
 
 
@@ -452,7 +452,6 @@ class AIEngine:
             if not added:
                 ans = "Tell me which product ID to add, for example: *add 101 to cart*."
             else:
-                # build human-friendly description
                 lines = []
                 for pid in added:
                     info = PRODUCT_DB.get(pid)
@@ -514,7 +513,6 @@ class AIEngine:
             # create synthetic order id
             oid = str(random.randint(100000, 999999))
             mem["orders"][oid] = {"items": list(cart), "status": "Order confirmed"}
-            # we can reuse simulation to provide status & ETA
             o = simulate_order(oid)
             mem["cart"] = []
 
@@ -564,7 +562,6 @@ class AIEngine:
             lines = []
             meta_orders = []
             for oid, info in list(orders.items())[-5:]:
-                # get richer simulated status for display
                 sim = simulate_order(oid)
                 line = f"{oid} → {sim['stage']} (ETA {sim['eta_days']} day(s))"
                 lines.append(line)
@@ -673,14 +670,10 @@ class AIEngine:
                 ),
             }
 
-        # PRODUCT SEARCH (high-level intent only, actual API via backend if needed)
+        # PRODUCT SEARCH
         if intent == "product_search":
-            # extract query words after 'search' or 'find'
-            q = msg
             m = re.match(r"(search|find)\s+(.*)", msg, re.I)
-            if m:
-                q = m.group(2).strip()
-
+            q = m.group(2).strip() if m else msg
             if not q:
                 ans = (
                     "Tell me what you are looking for, e.g. *search earbuds* "
@@ -691,7 +684,6 @@ class AIEngine:
                     f"🔍 I’ll look for products matching *{q}*.\n"
                     "In this demo, you can also type *show products* to see the catalog."
                 )
-
             return {
                 "final_answer": ans,
                 "intent": "product_search",
@@ -728,7 +720,7 @@ class AIEngine:
                     f"Name: {info['name']}\n"
                     f"Price: {info['price']}\n"
                     f"Tag: {info.get('tag', '-')}\n\n"
-                    "You can say *add {pid} to cart* or *show my cart* next."
+                    f"You can say *add {pid} to cart* or *show my cart* next."
                 )
                 meta_extra = {"product_id": pid, "known": True, "product": info}
 
@@ -757,8 +749,18 @@ class AIEngine:
 
         # ------------------ GREETING ------------------
         if intent == "greeting":
+            greeting_text = (
+                "Hi! I’m your *Smart AI Assistant* 👋\n\n"
+                "I can help you with:\n"
+                "• `show products` – browse the catalog\n"
+                "• `details 101` – see product details\n"
+                "• `add 101 to cart` – add item to cart\n"
+                "• `show my cart` / `checkout` – place an order\n"
+                "• `track 101` – track an order\n"
+                "• `refund status` / `payment issue` – support & FAQs\n"
+            )
             return {
-                "final_answer": "Hi! How can I help you today? 😊",
+                "final_answer": greeting_text,
                 "intent": "greeting",
                 "emotion": emotion,
                 "confidence": 1.0,
@@ -777,8 +779,17 @@ class AIEngine:
 
         # ------------------ SUPPORT ------------------
         if intent == "support":
+            support_text = (
+                "🔧 I’m here to help.\n\n"
+                "You can:\n"
+                "• Ask about *orders*: `track 101`, `my orders`, `cancel order 500123`\n"
+                "• Ask about *products*: `show products`, `search earbuds`, `details 101`\n"
+                "• Manage *cart*: `add 101 to cart`, `show my cart`, `checkout`\n"
+                "• Ask *support & policy*: `shipping info`, `refund status`, `payment issue`\n\n"
+                "Or just describe your issue in your own words 🙂"
+            )
             return {
-                "final_answer": "🔧 Please describe your issue.",
+                "final_answer": support_text,
                 "intent": "support",
                 "emotion": emotion,
                 "confidence": 0.9,
@@ -789,7 +800,7 @@ class AIEngine:
         if intent == "escalate":
             mem["escalations"] += 1
             return {
-                "final_answer": "Connecting you to a human agent...",
+                "final_answer": "👤 Connecting you to a human agent...",
                 "intent": "escalate",
                 "emotion": emotion,
                 "confidence": 1.0,
@@ -799,14 +810,18 @@ class AIEngine:
         # ------------------ FALLBACK ------------------
         if emotion == "angry":
             ans = (
-                "I’m really sorry this has been frustrating. "
-                "Tell me what went wrong — I can help or connect you to an agent."
+                "I’m really sorry this has been frustrating 🙏\n"
+                "Tell me what went wrong — I can *track orders*, *fix cart or orders*, "
+                "or connect you to a human agent."
             )
         else:
             ans = (
-                "I couldn’t fully understand that. "
-                "You can ask me to *track an order*, *show products*, "
-                "manage your *cart* or *order*, or *help with shipping/refund/payment*."
+                "I didn’t fully catch that, but here’s what I can do:\n"
+                "• `track 101` – order tracking\n"
+                "• `show products` / `search earbuds`\n"
+                "• `add 101 to cart`, `show my cart`, `checkout`\n"
+                "• `my orders`, `cancel order 500123`, `reorder 500123`\n"
+                "• Shipping, refund and payment support\n"
             )
 
         return {
