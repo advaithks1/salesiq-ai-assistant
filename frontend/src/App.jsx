@@ -27,7 +27,7 @@ const STATIC_PRODUCTS = [
     id: 103,
     title: "Bluetooth Speaker",
     price: 1999,
-    tag: "New",
+    tag: "New Arrival",
   },
   {
     id: 104,
@@ -35,7 +35,6 @@ const STATIC_PRODUCTS = [
     price: 799,
     tag: "Popular",
   },
-  // If you want a 5th product, add one more object here and in backend/AI DB.
 ];
 
 function App() {
@@ -46,12 +45,6 @@ function App() {
   const [cart, setCart] = useState([]);
   const [cartLoading, setCartLoading] = useState(false);
   const [cartError, setCartError] = useState("");
-
-  // ORDER TRACKER
-  const [orderId, setOrderId] = useState("");
-  const [orderLoading, setOrderLoading] = useState(false);
-  const [orderError, setOrderError] = useState("");
-  const [orderData, setOrderData] = useState(null);
 
   // On load: health + cart (products are static, no fetch)
   useEffect(() => {
@@ -151,36 +144,6 @@ function App() {
     0
   );
 
-  // Order tracker handler
-  const handleTrackOrder = async (e) => {
-    e.preventDefault();
-    const clean = (orderId || "").replace(/[^0-9]/g, "");
-
-    if (!clean) {
-      setOrderError("Please enter a numeric Order ID (e.g., 101).");
-      setOrderData(null);
-      return;
-    }
-
-    setOrderLoading(true);
-    setOrderError("");
-    setOrderData(null);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/order?oid=${clean}`);
-      const data = await res.json();
-      if (data.error) {
-        setOrderError(data.error.toString());
-      } else {
-        setOrderData(data);
-      }
-    } catch {
-      setOrderError("Failed to fetch order status.");
-    } finally {
-      setOrderLoading(false);
-    }
-  };
-
   return (
     <div className="app-root">
       {/* NAVBAR */}
@@ -188,15 +151,14 @@ function App() {
         <div className="nav-left">
           <span className="brand">Smart AI Store</span>
           <span className="brand-sub">
-            Powered by Smart AI Assistant (Zoho SalesIQ)
+            Powered by Smart AI Assistant • Zoho SalesIQ + FastAPI
           </span>
         </div>
         <div className="nav-right">
-          <a href="#top">Dashboard</a>
+          <a href="#top">Overview</a>
           <a href="#products">Products</a>
-          <a href="#order-tracker">Order Tracker</a>
-          <a href="#cart">Cart ({cartCount})</a>
-          <a href="#howto">How to Test</a>
+          <a href="#cart">Shared Cart</a>
+          <a href="#howto">How It Works</a>
           <a href="#evaluators">For Evaluators</a>
         </div>
       </header>
@@ -205,41 +167,44 @@ function App() {
         {/* HERO */}
         <section id="top" className="hero">
           <div className="hero-text">
-            <div className="pill">CliqTrix&apos;26 – Smart AI Assistant</div>
+            <div className="pill">CliqTrix&apos;26 • Team OHM</div>
 
-            <h1>AI-Powered E-Commerce Support & Order Tracking</h1>
+            <h1>Smart AI Assistant for E-Commerce & Support</h1>
 
             <p>
-              This single-page demo connects a custom AI backend, a
-              sample e-commerce catalog and a Zoho SalesIQ chatbot. The same
-              product IDs and order IDs are used by both this page and the
-              chatbot.
+              This demo shows how a Zoho SalesIQ chatbot, a custom FastAPI
+              backend and a simple storefront work together as a single
+              experience. The same product IDs, order IDs and cart are shared
+              between the chat widget and this page.
             </p>
 
             <p className="hero-note">
-              <span className="dot" /> All conversations happen in the{" "}
-              <b>Zoho SalesIQ chat bubble</b> at the bottom-right. The bot uses
-              the same backend as this page for order tracking, shared cart and
-              sentiment analysis.
+              <span className="dot" /> Open the <b>Zoho SalesIQ chat bubble</b>{" "}
+              (bottom-right) and type <code>hi</code> to see what the bot can
+              do. You can then come back here and sync the cart to see the
+              same items on the website.
             </p>
 
             <div className="hero-grid">
               <div className="hero-card">
-                <h3>1. Browse Products</h3>
-                <p>Products below are static but share IDs with the chatbot.</p>
-              </div>
-              <div className="hero-card">
-                <h3>2. Track Orders</h3>
+                <h3>Unified Experience</h3>
                 <p>
-                  Use the <b>Order Tracker</b> on this page or type{" "}
-                  <code>track 101</code> in the chatbot.
+                  The bot and this page call the same backend APIs for products,
+                  orders and cart operations.
                 </p>
               </div>
               <div className="hero-card">
-                <h3>3. Shared Cart</h3>
+                <h3>Shared Cart</h3>
                 <p>
-                  Add items here or via chat (<code>add 101 to cart</code>) and
-                  sync the cart between both.
+                  Add items in chat using <code>add 101 to cart</code> or from
+                  this page, then sync to keep them in sync.
+                </p>
+              </div>
+              <div className="hero-card">
+                <h3>Operator Insights</h3>
+                <p>
+                  Every message is analysed for intent, emotion, frustration and
+                  risk, and exposed as Agent Assist inside SalesIQ.
                 </p>
               </div>
             </div>
@@ -265,12 +230,12 @@ function App() {
         {/* PRODUCTS – STATIC (but aligned with bot) */}
         <section id="products" className="section">
           <div className="section-header">
-            <h2>Sample Products (Shared with Chatbot)</h2>
+            <h2>Sample Product Catalog</h2>
             <p>
-              These products are defined once and used both by this page and the
-              chatbot. IDs match the cart and order flows like{" "}
-              <code>add 101 to cart</code>, <code>details 101</code>,{" "}
-              <code>track 101</code>.
+              These products are defined once in the backend and reused by both
+              the chatbot and the website. The IDs shown here are the same IDs
+              you use in the chat (for example, <code>details 101</code> or{" "}
+              <code>add 101 to cart</code>).
             </p>
           </div>
 
@@ -284,11 +249,11 @@ function App() {
                   <h3>{p.title}</h3>
                   <p className="price">₹{p.price}</p>
 
-                  <p className="order-label">Sample Product / Order ID</p>
+                  <p className="order-label">Product / Order ID</p>
                   <p className="order-id">{p.id}</p>
 
                   <p className="product-hint">
-                    In the chatbot, you can try:{" "}
+                    In the chatbot, try:{" "}
                     <code>details {p.id}</code>,{" "}
                     <code>add {p.id} to cart</code>,{" "}
                     <code>remove {p.id} from cart</code>,{" "}
@@ -300,7 +265,7 @@ function App() {
                     className="primary-btn"
                     onClick={() => handleAddToCart(p)}
                   >
-                    Add to Cart (Shared with Bot)
+                    Add to Cart (shared with bot)
                   </button>
                 </div>
               </div>
@@ -308,76 +273,14 @@ function App() {
           </div>
         </section>
 
-        {/* ORDER TRACKER */}
-        <section id="order-tracker" className="section section-dark">
-          <div className="section-header">
-            <h2>Live Order Tracker (Shared with Bot)</h2>
-            <p>
-              This form calls the <code>/order?oid=&lt;id&gt;</code> endpoint in
-              the backend. The Zoho SalesIQ bot calls the same API when a user
-              types <code>track 101</code>.
-            </p>
-          </div>
-
-          <div className="order-tracker">
-            <form onSubmit={handleTrackOrder} className="order-form">
-              <label>
-                Enter Sample Order ID
-                <input
-                  type="text"
-                  value={orderId}
-                  onChange={(e) => setOrderId(e.target.value)}
-                  placeholder="e.g. 101"
-                />
-              </label>
-              <button
-                type="submit"
-                className="primary-btn"
-                disabled={orderLoading}
-              >
-                {orderLoading ? "Checking..." : "Track Order"}
-              </button>
-            </form>
-
-            {orderError && <div className="error-box">⚠ {orderError}</div>}
-
-            {orderData && !orderError && (
-              <div className="order-result">
-                <h3>📦 Order Tracking</h3>
-                <p>
-                  <b>Order ID:</b> {orderData.order_id}
-                  <br />
-                  <b>Status:</b> {orderData.stage}
-                  <br />
-                  <b>ETA:</b> {orderData.eta_days} day(s)
-                  <br />
-                  <b>Source:</b> {orderData.source}
-                </p>
-
-                {orderData.history && (
-                  <>
-                    <h4>🕒 History</h4>
-                    <ul>
-                      {orderData.history.map((h, idx) => (
-                        <li key={idx}>{h}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
         {/* CART SECTION (SYNCED WITH BOT) */}
         <section id="cart" className="section">
           <div className="section-header">
-            <h2>Shared Cart (Chatbot + Frontend)</h2>
+            <h2>Shared Cart (Chatbot + Website)</h2>
             <p>
-              This cart is backed by the same memory used by the Zoho SalesIQ
-              bot. Add items in chat using{" "}
-              <code>add 101 to cart</code> / <code>remove 101 from cart</code>{" "}
-              and click <b>Sync from Chatbot</b> to see them here.
+              This cart is backed by the same in-memory store that the Zoho
+              SalesIQ bot uses. If you add or remove items in chat, you can
+              refresh the view here with a single click.
             </p>
           </div>
 
@@ -388,14 +291,21 @@ function App() {
               onClick={syncCartFromBackend}
               disabled={cartLoading}
             >
-              {cartLoading ? "Syncing..." : "Sync from Chatbot"}
+              {cartLoading ? "Syncing with chatbot..." : "Sync cart from chatbot"}
             </button>
+            <span style={{ marginLeft: "0.75rem", opacity: 0.8 }}>
+              Items in cart: <b>{cartCount}</b>
+            </span>
           </div>
 
           {cartError && <p className="error-text">{cartError}</p>}
 
           {cart.length === 0 && !cartLoading ? (
-            <p>Your shared cart is empty. Use the buttons above or the chatbot to add items.</p>
+            <p>
+              The shared cart is currently empty. Add products from this page or
+              by using commands like <code>add 101 to cart</code> in the chat,
+              then click <b>Sync cart from chatbot</b>.
+            </p>
           ) : (
             <div className="cart-box">
               {cartLoading && <p>Updating cart...</p>}
@@ -445,64 +355,62 @@ function App() {
           )}
         </section>
 
-        {/* HOW TO TEST (FOCUS ON ZOHO BOT) */}
+        {/* HOW TO TEST (FOCUS ON REAL FLOWS) */}
         <section id="howto" className="section">
           <div className="section-header">
-            <h2>How to Test the Smart AI Assistant (Zoho SalesIQ)</h2>
+            <h2>How to Experience the Assistant</h2>
             <p>
-              All bot interactions happen in the Zoho SalesIQ widget at the
-              bottom-right of this page.
+              The idea is to show an end-to-end journey: browse products, talk
+              to the bot, change the cart and see how everything stays in sync.
             </p>
           </div>
 
           <div className="usage-grid">
             <div className="usage-card">
-              <h3>🧾 Order Tracking</h3>
+              <h3>1. Start a Conversation</h3>
               <ul>
-                <li>Open the Zoho SalesIQ chat bubble.</li>
+                <li>Open the Zoho SalesIQ chat bubble on this page.</li>
+                <li>Type <code>hi</code> to see the menu of capabilities.</li>
                 <li>
-                  Type <code>track 101</code>, <code>track 102</code>, etc.
-                </li>
-                <li>
-                  The bot calls the same <code>/order</code> API used by this
-                  page and shows stage, ETA and history.
+                  Try examples like <code>show products</code>,{" "}
+                  <code>details 101</code>, <code>refund status</code>.
                 </li>
               </ul>
             </div>
 
             <div className="usage-card">
-              <h3>🛍️ E-Commerce Flow in Chat</h3>
+              <h3>2. Work with Orders & Cart</h3>
               <ul>
                 <li>
-                  Browse products: <code>show products</code>,{" "}
-                  <code>details 101</code>.
+                  In chat: <code>add 101 to cart</code>,{" "}
+                  <code>show my cart</code>, <code>checkout</code>.
                 </li>
                 <li>
-                  Manage cart: <code>add 101 to cart</code>,{" "}
-                  <code>remove 101 from cart</code>,{" "}
-                  <code>show my cart</code>.
+                  On the website: add items from the product cards, then open
+                  the <b>Shared Cart</b> section.
                 </li>
                 <li>
-                  Place & manage orders: <code>checkout</code>,{" "}
-                  <code>my orders</code>, <code>cancel order 500123</code>,{" "}
-                  <code>reorder 500123</code>.
+                  Click <b>Sync cart from chatbot</b> and see the same cart
+                  items reflected here.
+                </li>
+                <li>
+                  In chat, you can also use <code>track 101</code> to see
+                  simulated order tracking.
                 </li>
               </ul>
             </div>
 
             <div className="usage-card">
-              <h3>😊 Sentiment & Agent Assist</h3>
+              <h3>3. See Sentiment & Agent Assist</h3>
               <ul>
+                <li>Send a positive message, e.g. “thanks, this is great”.</li>
                 <li>
-                  Send: <code>thanks, this is great</code> (happy).
+                  Then send a negative one, e.g. “this is bad, I am angry”.
                 </li>
                 <li>
-                  Then: <code>this is bad, I am angry</code> (frustrated).
-                </li>
-                <li>
-                  The backend updates emotion, frustration score and risk level,
-                  shown to operators through Agent Assist in the SalesIQ
-                  dashboard.
+                  In the SalesIQ operator view, the Agent Assist panel shows the
+                  detected intent, emotion, frustration score, risk level,
+                  recent summary and suggested reply.
                 </li>
               </ul>
             </div>
@@ -512,71 +420,82 @@ function App() {
         {/* FEEDBACK MAPPING */}
         <section id="evaluators" className="section">
           <div className="section-header">
-            <h2>CliqTrix&apos;26 – Feedback Mapping</h2>
+            <h2>CliqTrix&apos;26 – Feedback Implementation Summary</h2>
             <p>
-              This implementation directly addresses the three feedback points
-              shared by the CliqTrix team.
+              The changes in this version are based on the review comments
+              shared after the first round. Below is how each point was
+              addressed in a concrete way.
             </p>
           </div>
 
           <div className="feedback-grid">
             <div className="feedback-card">
-              <h3>1️⃣ Bot + E-Commerce Integration</h3>
+              <h3>1️⃣ Bot integrated with e-commerce backend</h3>
               <p>
-                The Zoho SalesIQ chatbot and this website both connect to the
-                same custom backend.
+                The chatbot no longer works with static replies. It uses a
+                dedicated FastAPI backend for core operations:
               </p>
               <ul>
                 <li>
-                  Shared endpoints for <code>/order</code> and <code>/cart</code>.
+                  <code>/order</code> for deterministic order tracking
+                  simulation (also used by chat with <code>track 101</code>).
                 </li>
                 <li>
-                  Order IDs and product IDs are consistent across website and
-                  chat.
+                  <code>/products</code> and a shared{" "}
+                  <code>PRODUCT_DB</code> for consistent IDs and names.
                 </li>
                 <li>
-                  Demonstrates real API-based integration for tracking and cart,
-                  not static replies.
+                  <code>/cart</code>, <code>/cart/add</code>,{" "}
+                  <code>/cart/remove</code> for a shared cart between chat and
+                  frontend.
                 </li>
               </ul>
             </div>
 
             <div className="feedback-card">
-              <h3>2️⃣ Product Browsing Inside the Bot</h3>
+              <h3>2️⃣ Product discovery inside the chatbot</h3>
               <p>
-                Users can explore the same catalog shown above directly via
-                chat.
+                Users can work with the same catalog entirely from the chat
+                interface:
               </p>
               <ul>
                 <li>
-                  Product listing via <code>show products</code>.
+                  <code>show products</code> lists the catalog.
                 </li>
                 <li>
-                  Product details via <code>details 101</code>.
+                  <code>details 101</code> returns a structured product card.
                 </li>
                 <li>
-                  Full e-commerce flow in chat: cart, checkout, orders.
+                  <code>add 101 to cart</code>, <code>remove 101 from cart</code>,{" "}
+                  <code>show my cart</code> and <code>checkout</code> complete
+                  the in-chat e-commerce flow.
+                </li>
+                <li>
+                  The same IDs are visible on this page so the relationship is
+                  clear during the demo.
                 </li>
               </ul>
             </div>
 
             <div className="feedback-card">
-              <h3>3️⃣ Improved Sentiment Analysis</h3>
+              <h3>3️⃣ Refined sentiment analysis & Agent Assist</h3>
               <p>
-                The AI engine powering the Zoho SalesIQ bot includes refined
-                sentiment rules and frustration scoring for Agent Assist.
+                The AI engine now includes a small but effective sentiment and
+                risk layer to assist human operators:
               </p>
               <ul>
                 <li>
-                  Classifies messages as <b>happy</b>, <b>neutral</b> or{" "}
-                  <b>angry</b> using lexicon + negation.
+                  Lexicon-based sentiment with basic negation handling, mapping
+                  messages to <b>happy</b>, <b>neutral</b> or <b>angry</b>.
                 </li>
                 <li>
-                  Tracks frustration across multiple messages per visitor.
+                  Frustration score accumulated over recent messages for each
+                  visitor.
                 </li>
                 <li>
-                  Exposes summary, frustration and risk to agents via metadata
-                  and the <code>agent_assist</code> object.
+                  Risk level, conversation summary, last three messages and a
+                  suggested reply exposed via metadata and rendered as an
+                  Agent Assist panel in the SalesIQ operator view.
                 </li>
               </ul>
             </div>
