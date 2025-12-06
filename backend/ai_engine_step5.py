@@ -451,13 +451,24 @@ class AIEngine:
 
         # ADD TO CART
         if intent == "add_to_cart":
+            msg_lower = msg.lower()
+        
+            # 1) Try to find numeric product IDs in the message
             ids = re.findall(r"\b(\d{3,12})\b", msg)
+        
+            # 2) If no IDs, try to match by product NAME
+            if not ids:
+                for pid_str, info in PRODUCT_DB.items():
+                    name_lower = info["name"].lower()
+                    if name_lower in msg_lower:
+                        ids.append(pid_str)
+        
             cart = mem["cart"]
             added = []
             for pid in ids:
                 cart.append(pid)
                 added.append(pid)
-
+        
             if not added:
                 ans = "Tell me which product ID to add, for example: *add 101 to cart*."
             else:
@@ -469,7 +480,7 @@ class AIEngine:
                     else:
                         lines.append(pid)
                 ans = "🛒 Added to your cart:\n" + "\n".join(f"- {l}" for l in lines)
-
+        
             return {
                 "final_answer": ans,
                 "intent": "add_to_cart",
@@ -884,3 +895,4 @@ class AIEngine:
             "confidence": 0.3,
             "metadata": build({}),
         }
+
