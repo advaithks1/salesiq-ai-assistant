@@ -1,336 +1,195 @@
-// src/App.jsx
-import React, { useEffect, useState } from "react";
-import "./index.css";
+import React from "react";
+import "./App.css";
 
-const BACKEND_URL = "https://salesiq-ai-assistant-8m8r.onrender.com";
+const PRODUCTS = [
+  { id: "101", name: "Wireless Earbuds", price: "₹1,299", tag: "Best Seller" },
+  { id: "102", name: "Smartwatch", price: "₹2,499", tag: "Trending" },
+  { id: "103", name: "Bluetooth Speaker", price: "₹1,999", tag: "New" },
+  { id: "104", name: "Laptop Stand", price: "₹799", tag: "Popular" },
+];
 
-function Badge({ children, color = "#2563eb" }) {
+function App() {
   return (
-    <span className="badge" style={{ background: color }}>
-      {children}
-    </span>
-  );
-}
-
-function SmallStat({ title, value }) {
-  return (
-    <div className="stat">
-      <div className="stat-value">{value}</div>
-      <div className="stat-title">{title}</div>
-    </div>
-  );
-}
-
-export default function App() {
-  // Order
-  const [orderId, setOrderId] = useState("101");
-  const [order, setOrder] = useState(null);
-  const [loadingOrder, setLoadingOrder] = useState(false);
-
-  // AI
-  const [aiInput, setAiInput] = useState("");
-  const [aiRes, setAiRes] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-
-  // Analytics
-  const [analytics, setAnalytics] = useState(null);
-  const [showAnalytics, setShowAnalytics] = useState(false);
-
-  // UI microstate
-  const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    // initial analytics fetch (light)
-    fetchAnalyticsSafe();
-  }, []);
-
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
-
-  async function fetchOrder(oid) {
-    if (!oid) {
-      setToast("Enter an order id");
-      return;
-    }
-    setLoadingOrder(true);
-    try {
-      const r = await fetch(`${BACKEND_URL}/order?oid=${encodeURIComponent(oid)}`);
-      const j = await r.json();
-      setOrder(j);
-      setToast("Order loaded");
-    } catch (e) {
-      setToast("Failed to reach backend");
-    } finally {
-      setLoadingOrder(false);
-    }
-  }
-
-  async function askAi() {
-    if (!aiInput || aiInput.trim().length < 1) {
-      setToast("Type a question for the AI");
-      return;
-    }
-    setAiLoading(true);
-    try {
-      const r = await fetch(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: "demo_user", message: aiInput }),
-      });
-      const j = await r.json();
-      setAiRes(j);
-      setAiInput("");
-      setToast("AI replied");
-      // optionally fetch analytics
-      fetchAnalyticsSafe();
-    } catch (e) {
-      setToast("AI unavailable");
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
-  async function fetchAnalyticsSafe() {
-    try {
-      const r = await fetch(`${BACKEND_URL}/analytics`);
-      if (!r.ok) return;
-      const j = await r.json();
-      setAnalytics(j);
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // small helpers for UI
-  const stageIndex = (s) => {
-    const list = [
-      "Order confirmed",
-      "Packing",
-      "Ready to ship",
-      "Shipped",
-      "In transit",
-      "Out for delivery",
-      "Delivered",
-    ];
-    return Math.max(0, list.indexOf(s));
-  };
-
-  const progressPercent = (stage) => {
-    const idx = stageIndex(stage);
-    if (idx < 0) return 0;
-    const percent = Math.round(((idx + 1) / 7) * 100);
-    return percent;
-  };
-
-  const emotionColor = (e) => {
-    if (!e) return "#6b7280";
-    if (e === "angry") return "#ef4444";
-    if (e === "sad") return "#6366f1";
-    if (e === "happy") return "#10b981";
-    if (e === "confused") return "#f59e0b";
-    return "#6b7280";
-  };
-
-  // tiny polished demo action
-  const handleQuickTrack = (id) => {
-    setOrderId(id);
-    fetchOrder(id);
-  };
-
-  return (
-    <div className="premium-root">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark">AI</div>
-          <div className="brand-title">Smart Support & Order Tracker</div>
+    <div className="app-root">
+      {/* Top navigation */}
+      <header className="nav">
+        <div className="nav-left">
+          <span className="brand">Smart AI Store</span>
+          <span className="brand-sub">Powered by Smart AI Assistant</span>
         </div>
-        <div className="top-actions">
-          <SmallStat title="Requests" value={analytics?.total_requests ?? "—"} />
-          <SmallStat title="Escalations" value={analytics?.escalations_total ?? "—"} />
+        <div className="nav-right">
+          <span>Dashboard</span>
+          <span>Products</span>
+          <span>Support</span>
         </div>
       </header>
 
-      <main className="grid">
-        {/* Left column: Order tracking */}
-        <section className="panel">
-          <div className="panel-head">
-            <h2>📦 Order Tracker</h2>
-            <div className="muted">Fast lookup • Demo mode</div>
-          </div>
+      {/* Hero / intro section */}
+      <main className="main">
+        <section className="hero">
+          <div className="hero-text">
+            <h1>Smart AI Assistant + E-Commerce Order Tracking</h1>
+            <p>
+              This demo connects a custom AI backend, an e-commerce style
+              product catalog, and a Zoho SalesIQ chatbot into one experience.
+            </p>
+            <p className="hero-note">
+              ✅ The same data (products & order IDs) are used by both this page
+              and the SalesIQ bot.
+            </p>
 
-          <div className="control-row">
-            <input
-              className="input"
-              placeholder="Enter order id (e.g. 101)"
-              value={orderId}
-              onChange={(e) => setOrderId(e.target.value)}
-            />
-            <button className="btn" onClick={() => fetchOrder(orderId)}>
-              {loadingOrder ? "Loading…" : "Track"}
-            </button>
-          </div>
-
-          <div className="quick-row">
-            <button className="chip" onClick={() => handleQuickTrack("101")}>Try 101</button>
-            <button className="chip" onClick={() => handleQuickTrack("105")}>Try 105</button>
-            <button className="chip" onClick={() => handleQuickTrack("103")}>Try 103</button>
-          </div>
-
-          {order ? (
-            <div className="order-card">
-              <div className="order-top">
-                <div className="order-left">
-                  <div className="order-id">Order #{order.order_id}</div>
-                  <div className="order-stage" style={{ color: emotionColor(aiRes?.emotion) }}>
-                    {order.stage}
-                  </div>
-                  <div className="muted">ETA: {order.eta_days} day(s)</div>
-                </div>
-                <div className="order-right">
-                  <Badge color="#e0f2fe">{order.status ?? order.stage}</Badge>
-                </div>
+            <div className="hero-grid">
+              <div className="hero-card">
+                <h3>1. Browse Products</h3>
+                <p>Check out the featured products and sample order IDs below.</p>
               </div>
-
-              <div className="progress">
-                <div className="progress-bar" style={{ width: `${progressPercent(order.stage)}%` }} />
-                <div className="progress-label">{progressPercent(order.stage)}%</div>
+              <div className="hero-card">
+                <h3>2. Chat with the Bot</h3>
+                <p>
+                  Click the chat bubble at the bottom-right to open the{" "}
+                  <b>Smart AI Assistant</b>.
+                </p>
               </div>
-
-              <ol className="timeline">
-                {order.history.map((h, i) => {
-                  const done = stageIndex(order.stage) >= i;
-                  return (
-                    <li key={i} className={done ? "done" : ""}>
-                      <span className="dot" />
-                      <div className="event">{h}</div>
-                    </li>
-                  );
-                })}
-              </ol>
+              <div className="hero-card">
+                <h3>3. Track & Explore</h3>
+                <p>
+                  Ask the bot to <code>track 101</code> or <code>show products</code>.
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="placeholder">No order loaded. Try the sample buttons.</div>
-          )}
+          </div>
         </section>
 
-        {/* Right column: AI and analytics */}
-        <aside className="panel side">
-          <div className="panel-head">
-            <h2>🤖 AI Assistant</h2>
-            <div className="muted">Natural language, emotion & intent</div>
+        {/* Product section */}
+        <section className="section">
+          <div className="section-header">
+            <h2>Featured Products (Demo Catalog)</h2>
+            <p>
+              These products are part of the e-commerce flow and are also
+              accessible via the chatbot.
+            </p>
           </div>
 
-          <div className="ai-box">
-            <textarea
-              className="ai-input"
-              placeholder="Ask the assistant (e.g., track 101)"
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-            />
-            <div className="control-row">
-              <button className="btn ghost" onClick={() => { setAiInput("track " + (orderId || "101")); askAi(); }}>
-                Quick: Track
-              </button>
-              <button className="btn" onClick={askAi}>{aiLoading ? "Thinking…" : "Ask AI"}</button>
-            </div>
-
-            <div className="ai-result">
-              {aiRes ? (
-                <>
-                  <div className="ai-row">
-                    <div className="ai-text">{aiRes.response}</div>
-                  </div>
-
-                  <div className="ai-meta">
-                    <div className="meta-item">
-                      <div className="meta-title">Intent</div>
-                      <div className="meta-value">{aiRes.intent}</div>
-                    </div>
-                    <div className="meta-item">
-                      <div className="meta-title">Emotion</div>
-                      <div className="meta-value" style={{ color: emotionColor(aiRes.emotion) }}>{aiRes.emotion ?? "neutral"}</div>
-                    </div>
-                    <div className="meta-item">
-                      <div className="meta-title">Priority</div>
-                      <div className="meta-value">{aiRes.engine_raw?.priority ?? "—"}</div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="muted">Ask anything — AI will analyze intent & emotion.</div>
-              )}
-            </div>
-          </div>
-
-          <div className="analytics-compact">
-            <div className="analytics-head">
-              <h3>📊 Analytics</h3>
-              <button className="link-btn" onClick={() => { setShowAnalytics(!showAnalytics); if (!analytics) fetchAnalyticsSafe(); }}>
-                {showAnalytics ? "Hide" : "Show"}
-              </button>
-            </div>
-
-            {showAnalytics && analytics ? (
-              <div className="analytics-inner">
-                <div className="mini-grid">
-                  <div>
-                    <SmallStat title="Total" value={analytics.total_requests ?? 0} />
-                  </div>
-                  <div>
-                    <SmallStat title="Escalations" value={analytics.escalations_total ?? 0} />
-                  </div>
-                </div>
-
-                <div className="chart">
-                  <div className="chart-title">Intent</div>
-                  <div className="bars">
-                    {Object.entries(analytics.intent_counts || {}).slice(0,6).map(([k, v]) => {
-                      const max = Math.max(...Object.values(analytics.intent_counts || {unknown:1}));
-                      const width = Math.round((v / (max || 1)) * 100);
-                      return (
-                        <div key={k} className="bar-row">
-                          <div className="bar-label">{k}</div>
-                          <div className="bar-track"><div className="bar-fill" style={{width: `${width}%`}} /></div>
-                          <div className="bar-value">{v}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="chart">
-                  <div className="chart-title">Emotion</div>
-                  <div className="bars">
-                    {Object.entries(analytics.emotion_counts || {}).map(([k, v]) => {
-                      const max = Math.max(...Object.values(analytics.emotion_counts || {neutral:1}));
-                      const width = Math.round((v / (max || 1)) * 100);
-                      return (
-                        <div key={k} className="bar-row">
-                          <div className="bar-label">{k}</div>
-                          <div className="bar-track"><div className="bar-fill" style={{width: `${width}%`, background: emotionColor(k)}} /></div>
-                          <div className="bar-value">{v}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+          <div className="product-grid">
+            {PRODUCTS.map((p) => (
+              <div key={p.id} className="product-card">
+                <div className="product-tag">{p.tag}</div>
+                <div className="product-body">
+                  <h3>{p.name}</h3>
+                  <p className="price">{p.price}</p>
+                  <p className="order-label">Sample Order ID:</p>
+                  <p className="order-id">{p.id}</p>
+                  <p className="product-hint">
+                    In the bot, try: <code>track {p.id}</code>
+                  </p>
                 </div>
               </div>
-            ) : (
-              <div className="muted" style={{ marginTop: 10 }}>Analytics snapshot — click Show.</div>
-            )}
+            ))}
           </div>
-        </aside>
+        </section>
+
+        {/* Bot usage guide */}
+        <section className="section section-dark">
+          <div className="section-header">
+            <h2>How to Test the Smart AI Assistant</h2>
+            <p>
+              Use the Zoho SalesIQ widget (bottom-right) and try the following
+              messages.
+            </p>
+          </div>
+
+          <div className="usage-grid">
+            <div className="usage-card">
+              <h3>🧾 Order Tracking</h3>
+              <ul>
+                <li>
+                  <code>track 101</code>, <code>track 102</code> etc.
+                </li>
+                <li>
+                  Bot calls the backend <b>/order?oid=&lt;id&gt;</b> endpoint.
+                </li>
+                <li>
+                  Shows status, ETA and history inside the chat.
+                </li>
+              </ul>
+            </div>
+
+            <div className="usage-card">
+              <h3>🛍️ Product Browsing</h3>
+              <ul>
+                <li>
+                  Type <code>show products</code> or <code>browse products</code>.
+                </li>
+                <li>
+                  Bot fetches product data from the e-commerce API.
+                </li>
+                <li>
+                  Returns a list of products with name & price.
+                </li>
+              </ul>
+            </div>
+
+            <div className="usage-card">
+              <h3>😊 Sentiment & Agent Assist</h3>
+              <ul>
+                <li>
+                  Send happy text: <code>thanks, this is great</code>.
+                </li>
+                <li>
+                  Send frustrated text: <code>this is bad, I am angry</code>.
+                </li>
+                <li>
+                  Backend classifies emotion and powers Agent Assist metadata
+                  (frustration, risk, suggestions).
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Technical overview */}
+        <section className="section">
+          <div className="section-header">
+            <h2>Architecture Overview</h2>
+            <p>This is the flow used to satisfy the CliqTrix feedback points.</p>
+          </div>
+
+          <div className="arch-grid">
+            <div className="arch-card">
+              <h3>🧠 AI Engine</h3>
+              <p>
+                FastAPI backend with intent detection, sentiment analysis, order
+                simulation / lookup and memory. Exposed via <code>/chat</code>{" "}
+                and <code>/order</code> endpoints.
+              </p>
+            </div>
+            <div className="arch-card">
+              <h3>💬 Zoho SalesIQ Bot</h3>
+              <p>
+                Uses a Deluge script to call the backend, render order tracking
+                cards, product lists and Agent Assist insights for operators.
+              </p>
+            </div>
+            <div className="arch-card">
+              <h3>🛒 E-Commerce Layer</h3>
+              <p>
+                A simple e-commerce style catalog and order IDs shared between
+                this page and the chatbot, demonstrating integration with an
+                external platform / API.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
 
+      {/* Footer */}
       <footer className="footer">
-        <div>Powered by your Team OHM</div>
-              </footer>
-
-      {toast && <div className="toast">{toast}</div>}
+        <span>
+          © 2025 Smart AI Assistant • Team OHM • Built for CliqTrix&apos;26
+        </span>
+      </footer>
     </div>
   );
 }
+
+export default App;
