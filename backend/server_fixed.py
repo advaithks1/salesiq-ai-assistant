@@ -4,8 +4,8 @@ FastAPI backend for Smart AI Assistant.
 
 Features:
 - /chat      -> main AI engine endpoint (uses AIEngine from ai_engine_step5.py)
-- /order     -> order tracking integrated with external e-commerce style API (fakestoreapi) + fallback simulation
-- /products  -> product catalog endpoint used by bot and frontend
+- /order     -> order tracking integrated with external e-commerce style API (fakestoreapi carts) + fallback simulation
+- /products  -> product catalog endpoint using DummyJSON API (stable)
 - /health    -> basic status
 """
 
@@ -143,7 +143,7 @@ def simulate_order(oid: str) -> Dict[str, Any]:
 @app.get("/order")
 async def order_lookup(oid: str):
     """
-    Order lookup integrated with an external e-commerce style API (fakestoreapi),
+    Order lookup integrated with an external e-commerce style API (fakestoreapi carts),
     with a deterministic simulation as fallback.
 
     Used by:
@@ -190,23 +190,24 @@ async def order_lookup(oid: str):
 
 
 # -------------------------------------------------------
-# PRODUCT LIST — external e-commerce API
+# PRODUCT LIST — using DummyJSON (very stable API)
 # -------------------------------------------------------
 @app.get("/products")
 async def get_products():
     """
-    Fetch products from Fakestore API to act as an e-commerce catalog.
+    Fetch products from DummyJSON API to act as an e-commerce catalog.
     Used by:
     - Zoho SalesIQ bot (commands like "show products")
     - Frontend page (optional, if you want to consume it there as well).
     """
     try:
-        resp = requests.get("https://fakestoreapi.com/products", timeout=10)
+        resp = requests.get("https://dummyjson.com/products?limit=10", timeout=10)
         resp.raise_for_status()
         data = resp.json()
+
         return {
-            "products": data,
-            "source": "fakestoreapi",
+            "products": data.get("products", []),
+            "source": "dummyjson",
         }
     except Exception as e:
         # In case of error, return an empty list but keep shape same
