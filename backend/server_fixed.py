@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from ai_engine_step5 import AIEngine
+from ai_engine_step5 import AIEngine, memory, PRODUCT_DB
 
 # -------------------------------------------------------
 # App Setup
@@ -139,6 +139,45 @@ def simulate_order(oid: str) -> Dict[str, Any]:
         "source": "simulation",
     }
 
+# -------------------------------------------------------
+# Shared CART helper (used by bot + frontend)
+# -------------------------------------------------------
+def build_cart_snapshot(user_id: str):
+    """
+    Build a unified cart view for the given user_id based on the
+    in-memory cart used by AIEngine.
+    """
+    mem = memory.data[user_id]
+    id_list = mem["cart"]  # list of product_id strings like "101"
+
+    # Count quantities
+    counts: Dict[str, int] = {}
+    for pid in id_list:
+        counts[pid] = counts.get(pid, 0) + 1
+
+    items = []
+    for pid_str, qty in counts.items():
+        info = PRODUCT_DB.get(pid_str, {})
+        name = info.get("name", f"Product {pid_str}")
+        price_str = info.get("price", "0")
+
+        # Convert "₹1,299" -> 1299
+        digits = "".join(ch for ch in price_str if ch.isdigit())
+        price = int(digits) if digits else 0
+
+        items.append(
+            {
+                "id": int(pid_str),
+                "title": name,
+                "price": price,
+                "qty": qty,
+            }
+        )
+
+    return {
+        "user_id": user_id,
+        "items": items,
+    }
 
 @app.get("/order")
 async def order_lookup(oid: str):
@@ -216,6 +255,56 @@ async def get_products():
             "source": "error",
             "detail": str(e),
         }
+# -------------------------------------------------------
+# CART API — shared between chatbot and frontend
+# -------------------------------------------------------
+@app.get("/cart")
+async def get_cart(user_id: str = "demo-user"):
+    """
+    Return the current cart for the given user_id,
+    based on AIEngine's in-memory cart.
+    """
+    return build_cart_snapshot(user_id)
+
+
+@app.post("/cart/add")
+async def cart_add(payload: Dict[str, Any]):
+    """
+    Add a product_id to the user's cart and return updated snapshot.
+    Expected JSON:
+    { "user_id": "demo-user", "product_id": 101 }
+    """
+    user_id = str(payload.get("user_id") or "demo-user")
+    pid = payload.get("product_id")
+    if pid is None:
+        raise HTTPException(status_code=400, detail="Missing product_id")
+
+    pid_str = str(pid)
+    mem = memory.data[user_id]
+    mem["cart"].append(pid_str)
+
+    return build_cart_snapshot(user_id)
+
+
+@app.post("/cart/remove")
+async def cart_remove(payload: Dict[str, Any]):
+    """
+    Remove a product_id from the user's cart (all occurrences)
+    and return updated snapshot.
+    Expected JSON:
+    { "user_id": "demo-user", "product_id": 101 }
+    """
+    user_id = str(payload.get("user_id") or "demo-user")
+    pid = payload.get("product_id")
+    if pid is None:
+        raise HTTPException(status_code=400, detail="Missing product_id")
+
+    pid_str = str(pid)
+    mem = memory.data[user_id]
+    mem["cart"] = [x for x in mem["cart"] if x != pid_str]
+
+    return build_cart_snapshot(user_id)
+
 
 
 # -------------------------------------------------------
