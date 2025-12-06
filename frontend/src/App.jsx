@@ -1,5 +1,5 @@
 import React from "react";
-import "./App.css";
+import "./index.css";
 
 const PRODUCTS = [
   { id: "101", name: "Wireless Earbuds", price: "₹1,299", tag: "Best Seller" },
