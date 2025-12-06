@@ -1,9 +1,11 @@
-# ai_engine_step5.py — FINAL HACKATHON VERSION WITH AGENT ASSIST PRO (IMPROVED SENTIMENT)
+# ai_engine_step5.py — FINAL HACKATHON VERSION WITH AGENT ASSIST PRO (PRO+ EDITION)
 """
 Lightweight AI engine for Zoho SalesIQ Hackathon.
+
 Features:
 - Intent detection (order, pricing, support, greeting, escalate, login)
 - Improved emotion detection (lexicon-based, negation-aware)
+- Mini FAQ support (shipping, refund, payment, login/account)
 - Order tracking simulation (deterministic)
 - Pricing engine
 - Safety filter
@@ -178,6 +180,84 @@ def classify_emotion(text: str):
     conf = 0.6 - 0.1 * abs(score)
     conf = max(0.3, conf)
     return "neutral", conf
+
+
+# ============================================================
+#  MINI FAQ ENGINE (for hackathon bonus points)
+# ============================================================
+
+FAQ_RULES = {
+    "shipping": [
+        "shipping",
+        "delivery time",
+        "how long",
+        "when will i get",
+        "when will my order arrive",
+    ],
+    "refund": [
+        "refund",
+        "return",
+        "money back",
+        "cancel order",
+        "cancellation",
+    ],
+    "payment": [
+        "payment",
+        "upi",
+        "card",
+        "credit card",
+        "debit card",
+        "payment failed",
+        "failed transaction",
+        "double charged",
+    ],
+    "account": [
+        "login issue",
+        "cant login",
+        "cannot login",
+        "account problem",
+        "sign in problem",
+        "login problem",
+    ],
+}
+
+FAQ_ANSWERS = {
+    "shipping": (
+        "🚚 *Shipping & Delivery*\n\n"
+        "Most orders are processed within 24 hours and delivered in 3–5 business days, "
+        "depending on your location. You can also type *track <order_id>* here to get "
+        "real-time status and ETA for a specific order."
+    ),
+    "refund": (
+        "💸 *Refunds & Returns*\n\n"
+        "You can request a refund or return within 7 days of delivery for eligible items. "
+        "Once approved, refunds are processed to the original payment method within 3–5 working days."
+    ),
+    "payment": (
+        "💳 *Payments*\n\n"
+        "We support UPI, credit/debit cards and netbanking. If your payment failed but "
+        "money was deducted, it is usually auto-reversed by your bank within 3–7 working days."
+    ),
+    "account": (
+        "🔐 *Login & Account Help*\n\n"
+        "If you are unable to login, please try resetting your password using the "
+        "*Forgot Password* option. If the issue continues, you can contact support or "
+        "ask me to *connect to an agent*."
+    ),
+}
+
+
+def match_faq(text: str) -> str:
+    """
+    Very small FAQ matcher: checks if any keyword from FAQ_RULES
+    appears in the message. Returns an FAQ key or "".
+    """
+    msg = (text or "").lower()
+    for key, kws in FAQ_RULES.items():
+        for k in kws:
+            if k in msg:
+                return key
+    return ""
 
 
 # ============================================================
@@ -401,11 +481,11 @@ class AIEngine:
             }
 
         # -------------------------
-        # SUPPORT
+        # SUPPORT (generic)
         # -------------------------
         if intent == "support":
             return {
-                "final_answer": "Please describe the issue.",
+                "final_answer": "Please describe the issue, and I’ll do my best to help.",
                 "intent": "support",
                 "emotion": emotion,
                 "confidence": 0.9,
@@ -430,7 +510,7 @@ class AIEngine:
         # -------------------------
         if intent == "login":
             return {
-                "final_answer": "Use the 'Forgot Password' option on the login page.",
+                "final_answer": "Use the 'Forgot Password' option on the login page. If that doesn't work, I can connect you to an agent.",
                 "intent": "login",
                 "emotion": emotion,
                 "confidence": 1.0,
@@ -438,10 +518,36 @@ class AIEngine:
             }
 
         # -------------------------
+        # FAQ (Shipping / Refund / Payment / Account)
+        # -------------------------
+        faq_key = match_faq(msg)
+        if faq_key:
+            answer = FAQ_ANSWERS.get(faq_key, "")
+            if answer:
+                return {
+                    "final_answer": answer,
+                    "intent": "support",
+                    "emotion": emotion,
+                    "confidence": 0.98,
+                    "metadata": build_meta({"faq_topic": faq_key}),
+                }
+
+        # -------------------------
         # FALLBACK
         # -------------------------
+        if emotion == "angry":
+            final_answer = (
+                "I’m really sorry this has been frustrating. "
+                "Please tell me a bit more about the issue, and I can try to fix it or connect you to a human agent."
+            )
+        else:
+            final_answer = (
+                "I couldn't fully understand that. "
+                "You can ask me to *track an order*, *show products*, *explain pricing* or *help with login/shipping/refund*."
+            )
+
         return {
-            "final_answer": "I couldn't understand that. Can you rephrase?",
+            "final_answer": final_answer,
             "intent": "unknown",
             "emotion": emotion,
             "confidence": 0.3,
