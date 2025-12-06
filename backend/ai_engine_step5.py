@@ -1,9 +1,9 @@
-# ai_engine_step5.py — FINAL HACKATHON VERSION WITH AGENT ASSIST PRO
+# ai_engine_step5.py — FINAL HACKATHON VERSION WITH AGENT ASSIST PRO (IMPROVED SENTIMENT)
 """
 Lightweight AI engine for Zoho SalesIQ Hackathon.
 Features:
 - Intent detection (order, pricing, support, greeting, escalate, login)
-- Emotion detection (rule-based)
+- Improved emotion detection (lexicon-based, negation-aware)
 - Order tracking simulation (deterministic)
 - Pricing engine
 - Safety filter
@@ -28,7 +28,7 @@ INTENT_RULES = {
     "pricing": ["price", "pricing", "plan", "subscription", "cost"],
     "support": ["help", "issue", "problem", "error", "bug", "crash"],
     "escalate": ["agent", "human", "supervisor"],
-    "login": ["password", "reset password", "forgot password"]
+    "login": ["password", "reset password", "forgot password"],
 }
 
 
@@ -58,17 +58,126 @@ def classify_intent(text: str):
 
 
 # ============================================================
-#  EMOTION
+#  EMOTION (IMPROVED)
 # ============================================================
 
-def classify_emotion(text: str):
-    msg = (text or "").lower()
+# Basic sentiment lexicons (tuned for support chats)
+POS_WORDS = {
+    "great",
+    "good",
+    "awesome",
+    "nice",
+    "thanks",
+    "thank",
+    "perfect",
+    "amazing",
+    "love",
+    "cool",
+    "happy",
+    "super",
+    "excellent",
+    "working",
+    "fine",
+}
 
-    if any(w in msg for w in ["thanks", "thank", "nice", "great"]):
-        return "happy", 0.9
-    if any(w in msg for w in ["hate", "angry", "fuck", "stupid", "bad"]):
-        return "angry", 0.9
-    return "neutral", 0.5
+NEG_WORDS = {
+    "bad",
+    "worst",
+    "slow",
+    "issue",
+    "problem",
+    "error",
+    "bug",
+    "crash",
+    "confused",
+    "sad",
+    "not working",
+    "broken",
+    "delay",
+    "late",
+    "annoying",
+}
+
+STRONG_NEG = {
+    "hate",
+    "angry",
+    "furious",
+    "terrible",
+    "useless",
+    "garbage",
+    "stupid",
+    "fuck",
+    "fucking",
+    "shit",
+}
+
+NEGATIONS = {"not", "never", "no", "dont", "don't", "cant", "can't"}
+
+
+def _sentiment_score(text: str) -> float:
+    """
+    Lightweight, rule-based sentiment scorer:
+    - counts positive & negative words
+    - handles simple negation like "not good", "not bad"
+    Returns a numeric score (negative = bad, positive = good).
+    """
+    msg = (text or "").lower()
+    tokens = re.findall(r"\w+", msg)
+
+    score = 0.0
+    i = 0
+    while i < len(tokens):
+        w = tokens[i]
+
+        # negation handling: "not good", "never helpful"
+        if w in NEGATIONS and i + 1 < len(tokens):
+            nxt = tokens[i + 1]
+            if nxt in POS_WORDS:
+                score -= 1.5  # "not good" -> negative
+                i += 2
+                continue
+            if nxt in NEG_WORDS or nxt in STRONG_NEG:
+                score += 0.5  # "not bad" -> slightly positive
+                i += 2
+                continue
+
+        # normal words
+        if w in POS_WORDS:
+            score += 1.0
+        if w in NEG_WORDS:
+            score -= 1.0
+        if w in STRONG_NEG:
+            score -= 2.0
+
+        i += 1
+
+    return score
+
+
+def classify_emotion(text: str):
+    """
+    Converts numeric sentiment score into discrete emotion + confidence.
+    - score >> 0 => happy
+    - score near 0 => neutral
+    - score << 0 => angry
+    """
+    score = _sentiment_score(text)
+
+    if score >= 1.0:
+        # more positive -> higher confidence
+        conf = min(1.0, 0.7 + 0.1 * score)
+        return "happy", conf
+
+    if score <= -1.0:
+        # more negative -> higher confidence
+        conf = min(1.0, 0.7 + 0.1 * abs(score))
+        return "angry", conf
+
+    # Around zero -> neutral
+    # lower magnitude = higher neutrality confidence
+    conf = 0.6 - 0.1 * abs(score)
+    conf = max(0.3, conf)
+    return "neutral", conf
 
 
 # ============================================================
@@ -77,10 +186,12 @@ def classify_emotion(text: str):
 
 class Memory:
     def __init__(self):
-        self.data = defaultdict(lambda: {
-            "context": deque(maxlen=20),
-            "escalations": 0
-        })
+        self.data = defaultdict(
+            lambda: {
+                "context": deque(maxlen=20),
+                "escalations": 0,
+            }
+        )
 
     def push(self, uid: str, speaker: str, text: str):
         self.data[uid]["context"].append({"speaker": speaker, "text": text})
@@ -100,14 +211,14 @@ ORDER_STAGES = [
     "Shipped",
     "In transit",
     "Out for delivery",
-    "Delivered"
+    "Delivered",
 ]
 
 
 def simulate_order(order_id: str):
     try:
         seed = int("".join(filter(str.isdigit, order_id))) % 9999
-    except:
+    except Exception:
         seed = sum(ord(c) for c in order_id) % 9999
 
     random.seed(seed)
@@ -117,7 +228,7 @@ def simulate_order(order_id: str):
         "order_id": order_id,
         "stage": ORDER_STAGES[idx],
         "eta_days": max(0, 5 - idx),
-        "history": ORDER_STAGES[:idx + 1]
+        "history": ORDER_STAGES[: idx + 1],
     }
 
 
@@ -130,7 +241,7 @@ def simulated_price(plan: str) -> str:
     prices = {
         "basic": "₹499",
         "pro": "₹1299",
-        "enterprise": "₹4999"
+        "enterprise": "₹4999",
     }
     return prices.get(plan, "₹499")
 
@@ -147,15 +258,25 @@ def suggest_reply(intent: str, emotion: str):
     if intent == "support":
         return "Ask for screenshot or error details."
     if emotion == "angry":
-        return "Stay calm and apologize politely."
-    return "Guide the user to next step."
+        return "Stay calm, apologize and offer to escalate if needed."
+    return "Guide the user to the next step."
 
 
 def frustration_score(context):
+    """
+    Frustration is based on recent user messages' sentiment,
+    not just presence of a single bad word.
+    - negative message -> +1
+    - strongly negative -> +2
+    """
     score = 0
     for c in context:
-        t = c["text"].lower()
-        if any(w in t for w in ["angry", "hate", "bad", "worst", "fuck"]):
+        if c["speaker"] != "user":
+            continue
+        s = _sentiment_score(c["text"])
+        if s <= -2:
+            score += 2
+        elif s <= -0.5:
             score += 1
     return score
 
@@ -173,7 +294,7 @@ def summarize(context):
         return "No conversation yet."
 
     last_text = " ".join(c["text"] for c in list(context)[-3:])
-    return "Recent user intent: " + last_text
+    return "Recent user messages: " + last_text
 
 
 # ============================================================
@@ -199,7 +320,7 @@ class AIEngine:
                 "intent": "blocked",
                 "emotion": "neutral",
                 "confidence": 1.0,
-                "metadata": {}
+                "metadata": {},
             }
 
         # intent + emotion
@@ -219,7 +340,7 @@ class AIEngine:
                 "summary": summarize(ctx),
                 "m1": ctx[-1]["text"] if total > 0 else "",
                 "m2": ctx[-2]["text"] if total > 1 else "",
-                "m3": ctx[-3]["text"] if total > 2 else ""
+                "m3": ctx[-3]["text"] if total > 2 else "",
             }
 
         # -------------------------
@@ -236,12 +357,14 @@ class AIEngine:
                     "intent": "order",
                     "emotion": emotion,
                     "confidence": 1.0,
-                    "metadata": build_meta({
-                        "order_id": oid,
-                        "order_stage": order["stage"],
-                        "eta_days": order["eta_days"],
-                        "history": order["history"]
-                    })
+                    "metadata": build_meta(
+                        {
+                            "order_id": oid,
+                            "order_stage": order["stage"],
+                            "eta_days": order["eta_days"],
+                            "history": order["history"],
+                        }
+                    ),
                 }
 
         # -------------------------
@@ -257,10 +380,12 @@ class AIEngine:
                 "intent": "pricing",
                 "emotion": emotion,
                 "confidence": 0.95,
-                "metadata": build_meta({
-                    "plan": plan,
-                    "price": price
-                })
+                "metadata": build_meta(
+                    {
+                        "plan": plan,
+                        "price": price,
+                    }
+                ),
             }
 
         # -------------------------
@@ -272,7 +397,7 @@ class AIEngine:
                 "intent": "greeting",
                 "emotion": emotion,
                 "confidence": 1.0,
-                "metadata": {}
+                "metadata": {},
             }
 
         # -------------------------
@@ -284,7 +409,7 @@ class AIEngine:
                 "intent": "support",
                 "emotion": emotion,
                 "confidence": 0.9,
-                "metadata": build_meta({})
+                "metadata": build_meta({}),
             }
 
         # -------------------------
@@ -297,7 +422,7 @@ class AIEngine:
                 "intent": "escalate",
                 "emotion": emotion,
                 "confidence": 1.0,
-                "metadata": build_meta({})
+                "metadata": build_meta({}),
             }
 
         # -------------------------
@@ -309,7 +434,7 @@ class AIEngine:
                 "intent": "login",
                 "emotion": emotion,
                 "confidence": 1.0,
-                "metadata": {}
+                "metadata": {},
             }
 
         # -------------------------
@@ -320,5 +445,5 @@ class AIEngine:
             "intent": "unknown",
             "emotion": emotion,
             "confidence": 0.3,
-            "metadata": build_meta({})
+            "metadata": build_meta({}),
         }
